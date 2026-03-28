@@ -4914,38 +4914,27 @@ QVariantList dsnote_app::features_availability() {
         }
 
         if (settings::launch_mode == settings::launch_mode_t::app) {
-            models_manager::instance()->update_models_using_availability(
-                {/*tts_coqui=*/feature_available("coqui-tts", false),
-                 /*tts_mimic3=*/feature_available("mmic3-tts", false),
-                 /*tts_mimic3_de=*/feature_available("mmic3-tts-de", false),
-                 /*tts_mimic3_es=*/feature_available("mmic3-tts-es", false),
-                 /*tts_mimic3_fr=*/feature_available("mmic3-tts-fr", false),
-                 /*tts_mimic3_it=*/feature_available("mmic3-tts-it", false),
-                 /*tts_mimic3_ru=*/feature_available("mmic3-tts-ru", false),
-                 /*tts_mimic3_sw=*/feature_available("mmic3-tts-sw", false),
-                 /*tts_mimic3_fa=*/feature_available("mmic3-tts-fa", false),
-                 /*tts_mimic3_nl=*/feature_available("mmic3-tts-nl", false),
-                 /*tts_rhvoice=*/feature_available("rhvoice-tts", false),
-                 /*tts_whisperspeech=*/
-                 feature_available("whisperspeech-tts", false),
-                 /*tts_parler=*/
-                 feature_available("parler-tts", false),
-                 /*tts_f5=*/
-                 feature_available("f5-tts", false),
-                 /*tts_kokoro=*/
-                 feature_available("kokoro-tts", false),
-                 /*tts_kokoro_ja=*/
-                 feature_available("kokoro-tts-ja", false),
-                 /*tts_kokoro_zh=*/
-                 feature_available("kokoro-tts-zh", false),
-                 /*stt_fasterwhisper=*/
-                 feature_available("faster-whisper-stt", false),
-                 /*stt_ds=*/feature_available("coqui-stt", false),
-                 /*stt_vosk=*/feature_available("vosk-stt", false),
-                 /*stt_whisper=*/feature_available("whispercpp-stt", false),
-                 /*mnt_bergamot=*/translator_enabled,
-                 /*ttt_hftc=*/feature_available("punctuator", false),
-                 /*option_r=*/feature_available("coqui-tts-ko", false)});
+            models_manager::models_availability_t ma;
+
+#define X(_name, _role, ...) \
+    ma.ENGINE_TYPE(_name, _role) = feature_available(ENGINE_FEAV_STR(_name, _role), false);
+            ENGINE_TABLE
+#undef X
+            ma.ENGINE_TYPE_LANG(mimic3, tts, de) = feature_available(ENGINE_FEAV_LANG_STR(mimic3, tts, de), false);
+            ma.ENGINE_TYPE_LANG(mimic3, tts, es) = feature_available(ENGINE_FEAV_LANG_STR(mimic3, tts, es), false);
+            ma.ENGINE_TYPE_LANG(mimic3, tts, fr) = feature_available(ENGINE_FEAV_LANG_STR(mimic3, tts, fr), false);
+            ma.ENGINE_TYPE_LANG(mimic3, tts, it) = feature_available(ENGINE_FEAV_LANG_STR(mimic3, tts, it), false);
+            ma.ENGINE_TYPE_LANG(mimic3, tts, ru) = feature_available(ENGINE_FEAV_LANG_STR(mimic3, tts, ru), false);
+            ma.ENGINE_TYPE_LANG(mimic3, tts, sw) = feature_available(ENGINE_FEAV_LANG_STR(mimic3, tts, sw), false);
+            ma.ENGINE_TYPE_LANG(mimic3, tts, fa) = feature_available(ENGINE_FEAV_LANG_STR(mimic3, tts, fa), false);
+            ma.ENGINE_TYPE_LANG(mimic3, tts, nl) = feature_available(ENGINE_FEAV_LANG_STR(mimic3, tts, nl), false);
+            ma.ENGINE_TYPE_LANG(kokoro, tts, ja) = feature_available(ENGINE_FEAV_LANG_STR(kokoro, tts, ja), false);
+            ma.ENGINE_TYPE_LANG(kokoro, tts, zh) = feature_available(ENGINE_FEAV_LANG_STR(kokoro, tts, zh), false);
+            ma.option_r = feature_available(ENGINE_FEAV_LANG_STR(coqui, tts, ko), false);
+            ma.ENGINE_TYPE(bergamot, mnt) = translator_enabled;
+#ifdef USE_PY
+            ma.ENGINE_TYPE(hftc, ttt) = feature_available("punctuator", false);
+#endif
         }
 
         emit features_changed();

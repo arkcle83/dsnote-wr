@@ -1,4 +1,4 @@
-/* Copyright (C) 2024-2025 Michal Kosciesza <michal@mkiol.net>
+/* Copyright (C) 2024-2026 Michal Kosciesza <michal@mkiol.net>
  *
  * This Source Code Form is subject to the terms of the Mozilla Public
  * License, v. 2.0. If a copy of the MPL was not distributed with this
@@ -25,7 +25,7 @@ ColumnLayout {
         comboBox {
             currentIndex: app.audio_source_idx
             model: app.audio_sources
-            onActivated: {
+            onActivated: (index) => {
                 app.audio_source_idx = index
             }
         }
@@ -58,7 +58,7 @@ ColumnLayout {
                 qsTranslate("SettingsPage", "Press and hold"),
                 qsTranslate("SettingsPage", "Always on")
             ]
-            onActivated: {
+            onActivated: (index) => {
                 if (index === 0) {
                     _settings.speech_mode = Settings.SpeechSingleSentence
                 } else if (index === 2) {
@@ -390,330 +390,335 @@ ColumnLayout {
         currentIndex: sttEnginesBar.currentIndex
         visible: sttEnginesBar.visible
 
-        ColumnLayout {
-            id: whispercppTab
+        Loader {
+            active: app.feature_whispercpp_stt
+            sourceComponent: Component {
+                ColumnLayout {
+                    id: whispercppTab
 
-            visible: app.feature_whispercpp_stt
-
-            ComboBoxForm {
-                label.text: qsTranslate("SettingsPage", "Profile")
-                toolTip: qsTranslate("SettingsPage", "Profiles allow you to change the processing parameters in the engine.") + " " +
-                         qsTranslate("SettingsPage", "You can set the parameters to get the fastest processing (%1) or the highest accuracy (%2).")
-                         .arg("<i>" + qsTranslate("SettingsPage", "Best performance") + "</i>")
-                         .arg("<i>" + qsTranslate("SettingsPage", "Best quality") + "</i>") + " " +
-                         qsTranslate("SettingsPage", "If you want to manually set individual engine parameters, select %1.")
-                         .arg("<i>" + qsTranslate("SettingsPage", "Custom") + "</i>")
-                comboBox {
-                    currentIndex: {
-                        switch(_settings.whispercpp_profile) {
-                        case Settings.EngineProfilePerformance: return 0
-                        case Settings.EngineProfileQuality: return 1
-                        case Settings.EngineProfileCustom: return 2
-                        }
-                        return 0
-                    }
-                    model: [
-                        qsTranslate("SettingsPage", "Best performance"),
-                        qsTranslate("SettingsPage", "Best quality"),
-                        qsTranslate("SettingsPage", "Custom")
-                    ]
-                    onActivated: {
-                        if (index === 0) {
-                            _settings.whispercpp_profile = Settings.EngineProfilePerformance
-                        } else if (index === 1) {
-                            _settings.whispercpp_profile = Settings.EngineProfileQuality
-                        } else if (index === 2) {
-                            _settings.whispercpp_profile = Settings.EngineProfileCustom
-                        } else {
-                            _settings.whispercpp_profile = Settings.EngineProfilePerformance
-                        }
-                    }
-                }
-            }
-
-            SpinBoxForm {
-                id: whispercppThreadsSpinBox
-
-                visible: _settings.whispercpp_profile === Settings.EngineProfileCustom
-                label.text: qsTranslate("SettingsPage", "Number of simultaneous threads")
-                toolTip: qsTranslate("SettingsPage", "Set the maximum number of simultaneous CPU threads.") + " " +
-                         qsTranslate("SettingsPage", "A higher value does not necessarily speed up decoding.")
-                spinBox {
-                    from: 0
-                    to: 32
-                    stepSize: 1
-                    value: _settings.whispercpp_cpu_threads < 1 ? 1 : _settings.whispercpp_cpu_threads > 32 ? 32 : _settings.whispercpp_cpu_threads
-                    textFromValue: function(value) { return value.toString() }
-                    valueFromText: function(text) { return parseInt(text); }
-                    onValueChanged: {
-                        _settings.whispercpp_cpu_threads = spinBox.value;
-                    }
-                }
-                button {
-                    icon.name: "edit-reset-symbolic"
-                    display: root.verticalMode ? AbstractButton.TextBesideIcon : AbstractButton.IconOnly
-                    text: qsTranslate("SettingsPage", "Reset")
-                    onClicked: _settings.reset_whispercpp_cpu_threads()
-                }
-            }
-
-            SpinBoxForm {
-                id: whispercppBeamSpinBox
-
-                visible: _settings.whispercpp_profile === Settings.EngineProfileCustom
-                label.text: qsTranslate("SettingsPage", "Beam search width")
-                toolTip: qsTranslate("SettingsPage", "A higher value may improve quality, but decoding time may also increase.")
-                spinBox {
-                    from: 0
-                    to: 100
-                    stepSize: 1
-                    value: _settings.whispercpp_beam_search < 1 ? 1 : _settings.whispercpp_beam_search > 100 ? 100 : _settings.whispercpp_beam_search
-                    textFromValue: function(value) { return value.toString() }
-                    valueFromText: function(text) { return parseInt(text); }
-                    onValueChanged: {
-                        _settings.whispercpp_beam_search = spinBox.value;
-                    }
-                }
-                button {
-                    icon.name: "edit-reset-symbolic"
-                    display: root.verticalMode ? AbstractButton.TextBesideIcon : AbstractButton.IconOnly
-                    text: qsTranslate("SettingsPage", "Reset")
-                    onClicked: _settings.reset_whispercpp_beam_search()
-                }
-            }
-
-            ComboBoxForm {
-                id: whispercppContextSizeComboBox
-
-                visible: _settings.whispercpp_profile === Settings.EngineProfileCustom
-                label.text: qsTranslate("SettingsPage", "Audio context size")
-                toolTip: qsTranslate("SettingsPage", "When %1 is set, the size is adjusted dynamically for each audio chunk.").arg("<i>" + qsTranslate("SettingsPage", "Dynamic") + "</i>") + " " +
-                         qsTranslate("SettingsPage", "When %1 is set, the default fixed size is used.").arg("<i>" + qsTranslate("SettingsPage", "Default") + "</i>") + " " +
-                         qsTranslate("SettingsPage", "To define a custom size, use the %1 option.").arg("<i>" + qsTranslate("SettingsPage", "Custom") + "</i>") + " " +
-                         qsTranslate("SettingsPage", "A smaller value speeds up decoding, but can have a negative impact on accuracy.")
-                comboBox {
-                    currentIndex: {
-                        switch(_settings.whispercpp_audioctx_size) {
-                        case Settings.OptionAuto: return 0
-                        case Settings.OptionDefault: return 1
-                        case Settings.OptionCustom: return 2
-                        }
-                        return 0
-                    }
-                    model: [
-                        qsTranslate("SettingsPage", "Dynamic"),
-                        qsTranslate("SettingsPage", "Default"),
-                        qsTranslate("SettingsPage", "Custom")
-                    ]
-                    onActivated: {
-                        if (index === 0) {
-                            _settings.whispercpp_audioctx_size = Settings.OptionAuto
-                        } else if (index === 1) {
-                            _settings.whispercpp_audioctx_size = Settings.OptionDefault
-                        } else if (index === 2) {
-                            _settings.whispercpp_audioctx_size = Settings.OptionCustom
+                    ComboBoxForm {
+                        label.text: qsTranslate("SettingsPage", "Profile")
+                        toolTip: qsTranslate("SettingsPage", "Profiles allow you to change the processing parameters in the engine.") + " " +
+                                 qsTranslate("SettingsPage", "You can set the parameters to get the fastest processing (%1) or the highest accuracy (%2).")
+                        .arg("<i>" + qsTranslate("SettingsPage", "Best performance") + "</i>")
+                        .arg("<i>" + qsTranslate("SettingsPage", "Best quality") + "</i>") + " " +
+                        qsTranslate("SettingsPage", "If you want to manually set individual engine parameters, select %1.")
+                        .arg("<i>" + qsTranslate("SettingsPage", "Custom") + "</i>")
+                        comboBox {
+                            currentIndex: {
+                                switch(_settings.whisper_profile) {
+                                case Settings.EngineProfilePerformance: return 0
+                                case Settings.EngineProfileQuality: return 1
+                                case Settings.EngineProfileCustom: return 2
+                                }
+                                return 0
+                            }
+                            model: [
+                                qsTranslate("SettingsPage", "Best performance"),
+                                qsTranslate("SettingsPage", "Best quality"),
+                                qsTranslate("SettingsPage", "Custom")
+                            ]
+                            onActivated: (index) => {
+                                             if (index === 0) {
+                                                 _settings.whisper_profile = Settings.EngineProfilePerformance
+                                             } else if (index === 1) {
+                                                 _settings.whisper_profile = Settings.EngineProfileQuality
+                                             } else if (index === 2) {
+                                                 _settings.whisper_profile = Settings.EngineProfileCustom
+                                             } else {
+                                                 _settings.whisper_profile = Settings.EngineProfilePerformance
+                                             }
+                                         }
                         }
                     }
-                }
-                button {
-                    icon.name: "edit-reset-symbolic"
-                    display: root.verticalMode ? AbstractButton.TextBesideIcon : AbstractButton.IconOnly
-                    text: qsTranslate("SettingsPage", "Reset")
-                    onClicked: {
-                        _settings.reset_whispercpp_audioctx_size()
-                        _settings.reset_whispercpp_audioctx_size_value()
+
+                    SpinBoxForm {
+                        id: whispercppThreadsSpinBox
+
+                        visible: _settings.whisper_profile === Settings.EngineProfileCustom
+                        label.text: qsTranslate("SettingsPage", "Number of simultaneous threads")
+                        toolTip: qsTranslate("SettingsPage", "Set the maximum number of simultaneous CPU threads.") + " " +
+                                 qsTranslate("SettingsPage", "A higher value does not necessarily speed up decoding.")
+                        spinBox {
+                            from: 0
+                            to: 32
+                            stepSize: 1
+                            value: _settings.whisper_cpu_threads < 1 ? 1 : _settings.whisper_cpu_threads > 32 ? 32 : _settings.whisper_cpu_threads
+                            textFromValue: function(value) { return value.toString() }
+                            valueFromText: function(text) { return parseInt(text); }
+                            onValueChanged: {
+                                _settings.whisper_cpu_threads = spinBox.value;
+                            }
+                        }
+                        button {
+                            icon.name: "edit-reset-symbolic"
+                            display: root.verticalMode ? AbstractButton.TextBesideIcon : AbstractButton.IconOnly
+                            text: qsTranslate("SettingsPage", "Reset")
+                            onClicked: _settings.reset_whispercpp_cpu_threads()
+                        }
+                    }
+
+                    SpinBoxForm {
+                        id: whispercppBeamSpinBox
+
+                        visible: _settings.whisper_profile === Settings.EngineProfileCustom
+                        label.text: qsTranslate("SettingsPage", "Beam search width")
+                        toolTip: qsTranslate("SettingsPage", "A higher value may improve quality, but decoding time may also increase.")
+                        spinBox {
+                            from: 0
+                            to: 100
+                            stepSize: 1
+                            value: _settings.whisper_beam_search < 1 ? 1 : _settings.whisper_beam_search > 100 ? 100 : _settings.whisper_beam_search
+                            textFromValue: function(value) { return value.toString() }
+                            valueFromText: function(text) { return parseInt(text); }
+                            onValueChanged: {
+                                _settings.whisper_beam_search = spinBox.value;
+                            }
+                        }
+                        button {
+                            icon.name: "edit-reset-symbolic"
+                            display: root.verticalMode ? AbstractButton.TextBesideIcon : AbstractButton.IconOnly
+                            text: qsTranslate("SettingsPage", "Reset")
+                            onClicked: _settings.reset_whispercpp_beam_search()
+                        }
+                    }
+
+                    ComboBoxForm {
+                        id: whispercppContextSizeComboBox
+
+                        visible: _settings.whisper_profile === Settings.EngineProfileCustom
+                        label.text: qsTranslate("SettingsPage", "Audio context size")
+                        toolTip: qsTranslate("SettingsPage", "When %1 is set, the size is adjusted dynamically for each audio chunk.").arg("<i>" + qsTranslate("SettingsPage", "Dynamic") + "</i>") + " " +
+                                 qsTranslate("SettingsPage", "When %1 is set, the default fixed size is used.").arg("<i>" + qsTranslate("SettingsPage", "Default") + "</i>") + " " +
+                                 qsTranslate("SettingsPage", "To define a custom size, use the %1 option.").arg("<i>" + qsTranslate("SettingsPage", "Custom") + "</i>") + " " +
+                                 qsTranslate("SettingsPage", "A smaller value speeds up decoding, but can have a negative impact on accuracy.")
+                        comboBox {
+                            currentIndex: {
+                                switch(_settings.whisper_audioctx_size) {
+                                case Settings.OptionAuto: return 0
+                                case Settings.OptionDefault: return 1
+                                case Settings.OptionCustom: return 2
+                                }
+                                return 0
+                            }
+                            model: [
+                                qsTranslate("SettingsPage", "Dynamic"),
+                                qsTranslate("SettingsPage", "Default"),
+                                qsTranslate("SettingsPage", "Custom")
+                            ]
+                            onActivated: (index) => {
+                                             if (index === 0) {
+                                                 _settings.whisper_audioctx_size = Settings.OptionAuto
+                                             } else if (index === 1) {
+                                                 _settings.whisper_audioctx_size = Settings.OptionDefault
+                                             } else if (index === 2) {
+                                                 _settings.whisper_audioctx_size = Settings.OptionCustom
+                                             }
+                                         }
+                        }
+                        button {
+                            icon.name: "edit-reset-symbolic"
+                            display: root.verticalMode ? AbstractButton.TextBesideIcon : AbstractButton.IconOnly
+                            text: qsTranslate("SettingsPage", "Reset")
+                            onClicked: {
+                                _settings.reset_whispercpp_audioctx_size()
+                                _settings.reset_whispercpp_audioctx_size_value()
+                            }
+                        }
+                    }
+
+                    SpinBoxForm {
+                        id: whispercppContextSizeSpinBox
+
+                        indends: 1
+                        visible: _settings.whisper_profile === Settings.EngineProfileCustom &&
+                                 _settings.whisper_audioctx_size === Settings.OptionCustom
+                        label.text: qsTranslate("SettingsPage", "Size")
+                        spinBox {
+                            from: 1
+                            to: 3000
+                            stepSize: 1
+                            value: _settings.whisper_audioctx_size_value
+                            onValueChanged: {
+                                _settings.whisper_audioctx_size_value = spinBox.value;
+                            }
+                        }
+                        button {
+                            icon.name: "edit-reset-symbolic"
+                            display: root.verticalMode ? AbstractButton.TextBesideIcon : AbstractButton.IconOnly
+                            text: qsTranslate("SettingsPage", "Reset")
+                            onClicked: _settings.reset_whispercpp_audioctx_size_value()
+                        }
+                        toolTip: qsTranslate("SettingsPage", "A smaller value speeds up decoding, but can have a negative impact on accuracy.")
+                    }
+
+                    CheckBox {
+                        id: whispercppFlashAttnCheckBox
+
+                        visible: _settings.whisper_profile === Settings.EngineProfileCustom
+                        checked: _settings.whisper_gpu_flash_attn
+                        text: qsTranslate("SettingsPage", "Use Flash Attention")
+                        onCheckedChanged: {
+                            _settings.whisper_gpu_flash_attn = checked
+                        }
+
+                        ToolTip.delay: Qt.styleHints.mousePressAndHoldInterval
+                        ToolTip.visible: hovered
+                        ToolTip.text: qsTranslate("SettingsPage", "Flash Attention may reduce the time of decoding when using GPU acceleration.") + " " +
+                                      qsTranslate("SettingsPage", "Disable this option if you observe problems.")
+                        hoverEnabled: true
+                    }
+
+                    CheckBox {
+                        id: whispercppAutolangSupCheckBox
+
+                        checked: _settings.whisper_autolang_with_sup
+                        text: qsTranslate("SettingsPage", "Use %1 model for automatic language detection").arg("<i>Tiny</i>")
+                        onCheckedChanged: {
+                            _settings.whisper_autolang_with_sup = checked
+                        }
+
+                        ToolTip.delay: Qt.styleHints.mousePressAndHoldInterval
+                        ToolTip.visible: hovered
+                        ToolTip.text: qsTranslate("SettingsPage", "In automatic language detection, the %1 model is used instead of the selected model.").arg("<i>Tiny</i>") + " " +
+                                      qsTranslate("SettingsPage", "This reduces processing time, but the automatically detected language may be incorrect.")
+                        hoverEnabled: true
+                    }
+
+                    GpuComboBox {
+                        id: whispercppGpuComboBox
+
+                        visible: _settings.hw_accel_supported() && app.feature_whispercpp_gpu
+                        devices: _settings.whisper_gpu_devices
+                        device_index: _settings.whisper_gpu_device_idx
+                        use_gpu: _settings.whisper_use_gpu
+                        onUse_gpuChanged: _settings.whisper_use_gpu = use_gpu
+                        onDevice_indexChanged: _settings.whisper_gpu_device_idx = device_index
                     }
                 }
-            }
-
-            SpinBoxForm {
-                id: whispercppContextSizeSpinBox
-
-                indends: 1
-                visible: _settings.whispercpp_profile === Settings.EngineProfileCustom &&
-                         _settings.whispercpp_audioctx_size === Settings.OptionCustom
-                label.text: qsTranslate("SettingsPage", "Size")
-                spinBox {
-                    from: 1
-                    to: 3000
-                    stepSize: 1
-                    value: _settings.whispercpp_audioctx_size_value
-                    onValueChanged: {
-                        _settings.whispercpp_audioctx_size_value = spinBox.value;
-                    }
-                }
-                button {
-                    icon.name: "edit-reset-symbolic"
-                    display: root.verticalMode ? AbstractButton.TextBesideIcon : AbstractButton.IconOnly
-                    text: qsTranslate("SettingsPage", "Reset")
-                    onClicked: _settings.reset_whispercpp_audioctx_size_value()
-                }
-                toolTip: qsTranslate("SettingsPage", "A smaller value speeds up decoding, but can have a negative impact on accuracy.")
-            }
-
-            CheckBox {
-                id: whispercppFlashAttnCheckBox
-
-                visible: _settings.whispercpp_profile === Settings.EngineProfileCustom
-                checked: _settings.whispercpp_gpu_flash_attn
-                text: qsTranslate("SettingsPage", "Use Flash Attention")
-                onCheckedChanged: {
-                    _settings.whispercpp_gpu_flash_attn = checked
-                }
-
-                ToolTip.delay: Qt.styleHints.mousePressAndHoldInterval
-                ToolTip.visible: hovered
-                ToolTip.text: qsTranslate("SettingsPage", "Flash Attention may reduce the time of decoding when using GPU acceleration.") + " " +
-                              qsTranslate("SettingsPage", "Disable this option if you observe problems.")
-                hoverEnabled: true
-            }
-
-            CheckBox {
-                id: whispercppAutolangSupCheckBox
-
-                checked: _settings.whispercpp_autolang_with_sup
-                text: qsTranslate("SettingsPage", "Use %1 model for automatic language detection").arg("<i>Tiny</i>")
-                onCheckedChanged: {
-                    _settings.whispercpp_autolang_with_sup = checked
-                }
-
-                ToolTip.delay: Qt.styleHints.mousePressAndHoldInterval
-                ToolTip.visible: hovered
-                ToolTip.text: qsTranslate("SettingsPage", "In automatic language detection, the %1 model is used instead of the selected model.").arg("<i>Tiny</i>") + " " +
-                              qsTranslate("SettingsPage", "This reduces processing time, but the automatically detected language may be incorrect.")
-                hoverEnabled: true
-            }
-
-            GpuComboBox {
-                id: whispercppGpuComboBox
-
-                visible: _settings.hw_accel_supported() && app.feature_whispercpp_gpu
-                devices: _settings.whispercpp_gpu_devices
-                device_index: _settings.whispercpp_gpu_device_idx
-                use_gpu: _settings.whispercpp_use_gpu
-                onUse_gpuChanged: _settings.whispercpp_use_gpu = use_gpu
-                onDevice_indexChanged: _settings.whispercpp_gpu_device_idx = device_index
             }
         }
+        Loader {
+            active: app.feature_fasterwhisper_stt
+            sourceComponent: Component {
+                ColumnLayout {
+                    id: fasterwhisperTab
 
-        ColumnLayout {
-            id: fasterwhisperTab
-
-            visible: app.feature_fasterwhisper_stt
-
-            ComboBoxForm {
-                label.text: qsTranslate("SettingsPage", "Profile")
-                toolTip: qsTranslate("SettingsPage", "Profiles allow you to change the processing parameters in the engine.") + " " +
-                         qsTranslate("SettingsPage", "You can set the parameters to get the fastest processing (%1) or the highest accuracy (%2).")
-                         .arg("<i>" + qsTranslate("SettingsPage", "Best performance") + "</i>")
-                         .arg("<i>" + qsTranslate("SettingsPage", "Best quality") + "</i>") + " " +
-                         qsTranslate("SettingsPage", "If you want to manually set individual engine parameters, select %1.")
-                         .arg("<i>" + qsTranslate("SettingsPage", "Custom") + "</i>")
-                comboBox {
-                    currentIndex: {
-                        switch(_settings.fasterwhisper_profile) {
-                        case Settings.EngineProfilePerformance: return 0
-                        case Settings.EngineProfileQuality: return 1
-                        case Settings.EngineProfileCustom: return 2
+                    ComboBoxForm {
+                        label.text: qsTranslate("SettingsPage", "Profile")
+                        toolTip: qsTranslate("SettingsPage", "Profiles allow you to change the processing parameters in the engine.") + " " +
+                                 qsTranslate("SettingsPage", "You can set the parameters to get the fastest processing (%1) or the highest accuracy (%2).")
+                        .arg("<i>" + qsTranslate("SettingsPage", "Best performance") + "</i>")
+                        .arg("<i>" + qsTranslate("SettingsPage", "Best quality") + "</i>") + " " +
+                        qsTranslate("SettingsPage", "If you want to manually set individual engine parameters, select %1.")
+                        .arg("<i>" + qsTranslate("SettingsPage", "Custom") + "</i>")
+                        comboBox {
+                            currentIndex: {
+                                switch(_settings.fasterwhisper_profile) {
+                                case Settings.EngineProfilePerformance: return 0
+                                case Settings.EngineProfileQuality: return 1
+                                case Settings.EngineProfileCustom: return 2
+                                }
+                                return 0
+                            }
+                            model: [
+                                qsTranslate("SettingsPage", "Best performance"),
+                                qsTranslate("SettingsPage", "Best quality"),
+                                qsTranslate("SettingsPage", "Custom")
+                            ]
+                            onActivated: (index) => {
+                                             if (index === 0) {
+                                                 _settings.fasterwhisper_profile = Settings.EngineProfilePerformance
+                                             } else if (index === 1) {
+                                                 _settings.fasterwhisper_profile = Settings.EngineProfileQuality
+                                             } else if (index === 2) {
+                                                 _settings.fasterwhisper_profile = Settings.EngineProfileCustom
+                                             } else {
+                                                 _settings.fasterwhisper_profile = Settings.EngineProfilePerformance
+                                             }
+                                         }
                         }
-                        return 0
                     }
-                    model: [
-                        qsTranslate("SettingsPage", "Best performance"),
-                        qsTranslate("SettingsPage", "Best quality"),
-                        qsTranslate("SettingsPage", "Custom")
-                    ]
-                    onActivated: {
-                        if (index === 0) {
-                            _settings.fasterwhisper_profile = Settings.EngineProfilePerformance
-                        } else if (index === 1) {
-                            _settings.fasterwhisper_profile = Settings.EngineProfileQuality
-                        } else if (index === 2) {
-                            _settings.fasterwhisper_profile = Settings.EngineProfileCustom
-                        } else {
-                            _settings.fasterwhisper_profile = Settings.EngineProfilePerformance
+
+                    SpinBoxForm {
+                        id: fasterwhisperThreadsSpinBox
+
+                        visible: _settings.fasterwhisper_profile === Settings.EngineProfileCustom
+                        label.text: qsTranslate("SettingsPage", "Number of simultaneous threads")
+                        toolTip: qsTranslate("SettingsPage", "Set the maximum number of simultaneous CPU threads.") + " " +
+                                 qsTranslate("SettingsPage", "A higher value does not necessarily speed up decoding.")
+                        spinBox {
+                            from: 0
+                            to: 32
+                            stepSize: 1
+                            value: _settings.fasterwhisper_cpu_threads < 1 ? 1 : _settings.fasterwhisper_cpu_threads > 32 ? 32 : _settings.fasterwhisper_cpu_threads
+                            textFromValue: function(value) { return value.toString() }
+                            valueFromText: function(text) { return parseInt(text); }
+                            onValueChanged: {
+                                _settings.fasterwhisper_cpu_threads = spinBox.value;
+                            }
+                        }
+                        button {
+                            icon.name: "edit-reset-symbolic"
+                            display: root.verticalMode ? AbstractButton.TextBesideIcon : AbstractButton.IconOnly
+                            text: qsTranslate("SettingsPage", "Reset")
+                            onClicked: _settings.reset_fasterwhisper_cpu_threads()
                         }
                     }
-                }
-            }
 
-            SpinBoxForm {
-                id: fasterwhisperThreadsSpinBox
+                    SpinBoxForm {
+                        id: fasterwhisperBeamSpinBox
 
-                visible: _settings.fasterwhisper_profile === Settings.EngineProfileCustom
-                label.text: qsTranslate("SettingsPage", "Number of simultaneous threads")
-                toolTip: qsTranslate("SettingsPage", "Set the maximum number of simultaneous CPU threads.") + " " +
-                         qsTranslate("SettingsPage", "A higher value does not necessarily speed up decoding.")
-                spinBox {
-                    from: 0
-                    to: 32
-                    stepSize: 1
-                    value: _settings.fasterwhisper_cpu_threads < 1 ? 1 : _settings.fasterwhisper_cpu_threads > 32 ? 32 : _settings.fasterwhisper_cpu_threads
-                    textFromValue: function(value) { return value.toString() }
-                    valueFromText: function(text) { return parseInt(text); }
-                    onValueChanged: {
-                        _settings.fasterwhisper_cpu_threads = spinBox.value;
+                        visible: _settings.fasterwhisper_profile === Settings.EngineProfileCustom
+                        label.text: qsTranslate("SettingsPage", "Beam search width")
+                        toolTip: qsTranslate("SettingsPage", "A higher value may improve quality, but decoding time may also increase.")
+                        spinBox {
+                            from: 0
+                            to: 100
+                            stepSize: 1
+                            value: _settings.fasterwhisper_beam_search < 1 ? 1 : _settings.fasterwhisper_beam_search > 100 ? 100 : _settings.fasterwhisper_beam_search
+                            textFromValue: function(value) { return value.toString() }
+                            valueFromText: function(text) { return parseInt(text); }
+                            onValueChanged: {
+                                _settings.fasterwhisper_beam_search = spinBox.value;
+                            }
+                        }
+                        button {
+                            icon.name: "edit-reset-symbolic"
+                            display: root.verticalMode ? AbstractButton.TextBesideIcon : AbstractButton.IconOnly
+                            text: qsTranslate("SettingsPage", "Reset")
+                            onClicked: _settings.reset_fasterwhisper_beam_search()
+                        }
+                    }
+
+                    CheckBox {
+                        id: fasterwhisperFlashAttnCheckBox
+
+                        visible: _settings.fasterwhisper_profile === Settings.EngineProfileCustom
+                        checked: _settings.fasterwhisper_gpu_flash_attn
+                        text: qsTranslate("SettingsPage", "Use Flash Attention")
+                        onCheckedChanged: {
+                            _settings.fasterwhisper_gpu_flash_attn = checked
+                        }
+
+                        ToolTip.delay: Qt.styleHints.mousePressAndHoldInterval
+                        ToolTip.visible: hovered
+                        ToolTip.text: qsTranslate("SettingsPage", "Flash Attention may reduce the time of decoding when using GPU acceleration.") + " " +
+                                      qsTranslate("SettingsPage", "Disable this option if you observe problems.")
+                        hoverEnabled: true
+                    }
+
+                    GpuComboBox {
+                        id: fasterwhisperGpuComboBox
+
+                        visible: _settings.hw_accel_supported() && app.feature_fasterwhisper_gpu
+                        devices: _settings.fasterwhisper_gpu_devices
+                        device_index: _settings.fasterwhisper_gpu_device_idx
+                        use_gpu: _settings.fasterwhisper_use_gpu
+                        onUse_gpuChanged: _settings.fasterwhisper_use_gpu = use_gpu
+                        onDevice_indexChanged: _settings.fasterwhisper_gpu_device_idx = device_index
                     }
                 }
-                button {
-                    icon.name: "edit-reset-symbolic"
-                    display: root.verticalMode ? AbstractButton.TextBesideIcon : AbstractButton.IconOnly
-                    text: qsTranslate("SettingsPage", "Reset")
-                    onClicked: _settings.reset_fasterwhisper_cpu_threads()
-                }
-            }
-
-            SpinBoxForm {
-                id: fasterwhisperBeamSpinBox
-
-                visible: _settings.fasterwhisper_profile === Settings.EngineProfileCustom
-                label.text: qsTranslate("SettingsPage", "Beam search width")
-                toolTip: qsTranslate("SettingsPage", "A higher value may improve quality, but decoding time may also increase.")
-                spinBox {
-                    from: 0
-                    to: 100
-                    stepSize: 1
-                    value: _settings.fasterwhisper_beam_search < 1 ? 1 : _settings.fasterwhisper_beam_search > 100 ? 100 : _settings.fasterwhisper_beam_search
-                    textFromValue: function(value) { return value.toString() }
-                    valueFromText: function(text) { return parseInt(text); }
-                    onValueChanged: {
-                        _settings.fasterwhisper_beam_search = spinBox.value;
-                    }
-                }
-                button {
-                    icon.name: "edit-reset-symbolic"
-                    display: root.verticalMode ? AbstractButton.TextBesideIcon : AbstractButton.IconOnly
-                    text: qsTranslate("SettingsPage", "Reset")
-                    onClicked: _settings.reset_fasterwhisper_beam_search()
-                }
-            }
-
-            CheckBox {
-                id: fasterwhisperFlashAttnCheckBox
-
-                visible: _settings.fasterwhisper_profile === Settings.EngineProfileCustom
-                checked: _settings.fasterwhisper_gpu_flash_attn
-                text: qsTranslate("SettingsPage", "Use Flash Attention")
-                onCheckedChanged: {
-                    _settings.fasterwhisper_gpu_flash_attn = checked
-                }
-
-                ToolTip.delay: Qt.styleHints.mousePressAndHoldInterval
-                ToolTip.visible: hovered
-                ToolTip.text: qsTranslate("SettingsPage", "Flash Attention may reduce the time of decoding when using GPU acceleration.") + " " +
-                              qsTranslate("SettingsPage", "Disable this option if you observe problems.")
-                hoverEnabled: true
-            }
-
-            GpuComboBox {
-                id: fasterwhisperGpuComboBox
-
-                visible: _settings.hw_accel_supported() && app.feature_fasterwhisper_gpu
-                devices: _settings.fasterwhisper_gpu_devices
-                device_index: _settings.fasterwhisper_gpu_device_idx
-                use_gpu: _settings.fasterwhisper_use_gpu
-                onUse_gpuChanged: _settings.fasterwhisper_use_gpu = use_gpu
-                onDevice_indexChanged: _settings.fasterwhisper_gpu_device_idx = device_index
             }
         }
     }

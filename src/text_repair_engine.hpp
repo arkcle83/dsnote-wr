@@ -9,7 +9,6 @@
 #define TEXT_REPAIR_ENGINE_HPP
 
 #include <condition_variable>
-#include <fstream>
 #include <functional>
 #include <iostream>
 #include <mutex>
@@ -19,7 +18,9 @@
 #include <thread>
 #include <vector>
 
+#ifdef USE_PY
 #include "punctuator.hpp"
+#endif
 #include "text_tools.hpp"
 
 class text_repair_engine {
@@ -54,11 +55,11 @@ class text_repair_engine {
         std::string name;
         std::string platform_name;
 
-        inline bool operator==(const gpu_device_t& rhs) const {
+        bool operator==(const gpu_device_t& rhs) const {
             return platform_name == rhs.platform_name && name == rhs.name &&
                    id == rhs.id;
         }
-        inline bool operator!=(const gpu_device_t& rhs) const {
+        bool operator!=(const gpu_device_t& rhs) const {
             return !(*this == rhs);
         }
     };
@@ -83,7 +84,7 @@ class text_repair_engine {
         std::string options;
         bool use_gpu = false;
         gpu_device_t gpu_device;
-        inline bool has_option(char c) const {
+        bool has_option(char c) const {
             return options.find(c) != std::string::npos;
         }
     };
@@ -94,14 +95,12 @@ class text_repair_engine {
     void start();
     void stop();
     void request_stop();
-    inline auto model_files() const { return m_config.model_files; }
-    inline auto state() const { return m_state; }
-    inline auto use_gpu() const { return m_config.use_gpu; }
-    inline auto gpu_device() const { return m_config.gpu_device; }
-    inline auto text_format() const { return m_config.text_format; }
-    inline void set_text_format(text_format_t value) {
-        m_config.text_format = value;
-    }
+    auto model_files() const { return m_config.model_files; }
+    auto state() const { return m_state; }
+    auto use_gpu() const { return m_config.use_gpu; }
+    auto gpu_device() const { return m_config.gpu_device; }
+    auto text_format() const { return m_config.text_format; }
+    void set_text_format(text_format_t value) { m_config.text_format = value; }
     void repair_text(const std::string& text, task_type_t task_type);
 
    protected:
@@ -111,7 +110,7 @@ class text_repair_engine {
         bool first = false;
         bool last = false;
 
-        inline bool empty() const { return text.empty(); }
+        bool empty() const { return text.empty(); }
     };
 
     config_t m_config;
@@ -122,14 +121,16 @@ class text_repair_engine {
     std::condition_variable m_cv;
     state_t m_state = state_t::idle;
     std::optional<text_tools::processor> m_text_processor;
+#ifdef USE_PY
     std::optional<punctuator> m_punctuator;
+#endif
 
     void set_state(state_t new_state);
     void process();
     void process_task(task_t& task, std::string& repaired_text);
     std::vector<task_t> make_tasks(const std::string& text,
                                    task_type_t task_type) const;
-    inline bool is_shutdown() const {
+    bool is_shutdown() const {
         return m_state == state_t::stopping || m_state == state_t::stopped ||
                m_state == state_t::error;
     }

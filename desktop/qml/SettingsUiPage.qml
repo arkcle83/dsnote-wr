@@ -53,7 +53,7 @@ ColumnLayout {
                 qsTranslate("SettingsPage", "Auto"),
                 qsTranslate("SettingsPage", "English")
             ]
-            onActivated: {
+            onActivated: (index) => {
                 _settings.translate_ui = (index === 0 ? true : false)
             }
         }
@@ -76,7 +76,7 @@ ColumnLayout {
                 qsTranslate("SettingsPage", "When in background"),
                 qsTranslate("SettingsPage", "Always")
             ]
-            onActivated: {
+            onActivated: (index) => {
                 if (index === 0) {
                     _settings.desktop_notification_policy = Settings.DesktopNotificationNever
                 } else if (index === 1) {

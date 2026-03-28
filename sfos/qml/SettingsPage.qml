@@ -162,7 +162,7 @@ Page {
                         ComboBox {
                             label: qsTr("Profile")
                             currentIndex: {
-                                switch(_settings.whispercpp_profile) {
+                                switch(_settings.whisper_profile) {
                                 case Settings.EngineProfilePerformance: return 0
                                 case Settings.EngineProfileQuality: return 1
                                 }
@@ -174,11 +174,11 @@ Page {
                             }
                             onCurrentIndexChanged: {
                                 if (currentIndex === 0) {
-                                    _settings.whispercpp_profile = Settings.EngineProfilePerformance
+                                    _settings.whisper_profile = Settings.EngineProfilePerformance
                                 } else if (currentIndex === 1) {
-                                    _settings.whispercpp_profile = Settings.EngineProfileQuality
+                                    _settings.whisper_profile = Settings.EngineProfileQuality
                                 } else {
-                                    _settings.whispercpp_profile = Settings.EngineProfilePerformance
+                                    _settings.whisper_profile = Settings.EngineProfilePerformance
                                 }
                             }
                             description: qsTr("Profiles allow you to change the processing parameters in the engine.") + " " +
@@ -256,11 +256,11 @@ Page {
                         }
 
 //                        TextSwitch {
-//                            checked: _settings.whispercpp_autolang_with_sup
+//                            checked: _settings.whisper_autolang_with_sup
 //                            automaticCheck: false
 //                            text: qsTr("Use %1 model for automatic language detection").arg("<i>Tiny</i>")
 //                            onClicked: {
-//                                _settings.whispercpp_autolang_with_sup = !_settings.whispercpp_autolang_with_sup
+//                                _settings.whisper_autolang_with_sup = !_settings.whisper_autolang_with_sup
 //                            }
 //                            description: qsTr("In automatic language detection, the %1 model is used instead of the selected model.").arg("<i>Tiny</i>") + " " +
 //                                         qsTr("This reduces processing time, but the automatically detected language may be incorrect.")
@@ -268,11 +268,11 @@ Page {
 
 //                        TextSwitch {
 //                            visible: _settings.hw_accel_supported() && app.feature_whispercpp_gpu
-//                            checked: _settings.whispercpp_use_gpu
+//                            checked: _settings.whisper_use_gpu
 //                            automaticCheck: false
 //                            text: qsTr("Use hardware acceleration")
 //                            onClicked: {
-//                                _settings.whispercpp_use_gpu = !_settings.whispercpp_use_gpu
+//                                _settings.whisper_use_gpu = !_settings.whisper_use_gpu
 //                            }
 //                            description: qsTr("If a suitable hardware accelerator (CPU or graphics card) is found in the system, it will be used to speed up processing.") + " " +
 //                                         qsTr("Hardware acceleration significantly reduces the time of decoding.") + " " +
@@ -281,7 +281,7 @@ Page {
 
 //                        PaddedLabel {
 //                            visible: _settings.hw_accel_supported() && app.feature_whispercpp_gpu &&
-//                                     _settings.whispercpp_use_gpu && _settings.whispercpp_gpu_devices.length <= 1
+//                                     _settings.whisper_use_gpu && _settings.whisper_gpu_devices.length <= 1
 //                            font.pixelSize: Theme.fontSizeExtraSmall
 //                            color: Theme.errorColor
 //                            text: qsTr("A suitable hardware accelerator could not be found.")
@@ -290,16 +290,16 @@ Page {
 //                        ComboBox {
 //                            label: qsTr("Hardware accelerator")
 //                            visible: _settings.hw_accel_supported() && app.feature_whispercpp_gpu &&
-//                                     _settings.whispercpp_use_gpu && _settings.whispercpp_gpu_devices.length > 1
-//                            currentIndex: _settings.whispercpp_gpu_device_idx
+//                                     _settings.whisper_use_gpu && _settings.whisper_gpu_devices.length > 1
+//                            currentIndex: _settings.whisper_gpu_device_idx
 //                            menu: ContextMenu {
 //                                Repeater {
-//                                    model: _settings.whispercpp_gpu_devices
+//                                    model: _settings.whisper_gpu_devices
 //                                    MenuItem { text: modelData }
 //                                }
 //                            }
 //                            onCurrentIndexChanged: {
-//                                _settings.whispercpp_gpu_device_idx = currentIndex
+//                                _settings.whisper_gpu_device_idx = currentIndex
 //                            }
 //                            description: qsTr("Select preferred hardware accelerator.")
 //                        }

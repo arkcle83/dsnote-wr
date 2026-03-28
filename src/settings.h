@@ -21,6 +21,7 @@
 
 #include <optional>
 
+#include "engine_table.hxx"
 #include "qdebug.h"
 #include "singleton.h"
 
@@ -65,16 +66,6 @@
     X(vulkan, true)                                                    \
     X(vulkan_igpu, true)                                               \
     X(vulkan_cpu, false) /* will work but extremely slow */
-
-// name, enable-by-default
-#define GPU_ENGINE_TABLE    \
-    X(whispercpp, false)    \
-    X(fasterwhisper, false) \
-    X(coqui, true)          \
-    X(whisperspeech, true)  \
-    X(parler, true)         \
-    X(f5, true)             \
-    X(kokoro, true)
 
 // id, action-name, description, default-key-combination, trigger-on-deactivate
 #define HOTKEY_TABLE                                                           \
@@ -391,9 +382,9 @@ class settings : public QSettings, public singleton<settings> {
     Q_PROPERTY(                                                           \
         bool name##_autolang_with_sup READ name##_autolang_with_sup WRITE \
             set_##name##_autolang_with_sup NOTIFY name##_changed)
-    X(whispercpp)
+    X(whisper)
 #undef X
-#define X(name)                                                              \
+#define X(name, ...)                                                         \
     Q_PROPERTY(bool name##_gpu_flash_attn READ name##_gpu_flash_attn WRITE   \
                    set_##name##_gpu_flash_attn NOTIFY name##_changed)        \
     Q_PROPERTY(int name##_cpu_threads READ name##_cpu_threads WRITE          \
@@ -407,10 +398,12 @@ class settings : public QSettings, public singleton<settings> {
             set_##name##_audioctx_size_value NOTIFY name##_changed)          \
     Q_PROPERTY(engine_profile_t name##_profile READ name##_profile WRITE     \
                    set_##name##_profile NOTIFY name##_changed)
-    X(whispercpp)
-    X(fasterwhisper)
+    WHISPER_ENGINE_TABLE
 #undef X
-#define X(name, _)                                                           \
+
+#define X(_name, _2, _gpu, ...) X##_gpu(_name)
+#define Xfalse(name)
+#define Xtrue(name)                                                          \
     Q_PROPERTY(bool name##_use_gpu READ name##_use_gpu WRITE                 \
                    set_##name##_use_gpu NOTIFY name##_use_gpu_changed)       \
     Q_PROPERTY(QStringList name##_gpu_devices READ name##_gpu_devices NOTIFY \
@@ -422,8 +415,11 @@ class settings : public QSettings, public singleton<settings> {
                    set_##name##_gpu_device NOTIFY name##_gpu_device_changed) \
     Q_PROPERTY(QString name##_auto_gpu_device READ                           \
                    name##_auto_gpu_device NOTIFY name##_gpu_device_changed)
-    GPU_ENGINE_TABLE
+    STT_ENGINE_TABLE
+    TTS_ENGINE_TABLE
 #undef X
+#undef Xtrue
+#undef Xfalse
 
    public:
     enum class mode_t { Stt = 0, Tts = 1 };
@@ -581,40 +577,54 @@ class settings : public QSettings, public singleton<settings> {
         HintDoneRefVoiceDefault = 1U << 6U
     };
     Q_ENUM(hint_done_flags_t)
-
+    // clang-format off
     enum hw_feature_flags_t : unsigned int {
         hw_feature_none = 0U,
-        hw_feature_stt_whispercpp_cuda = 1U << 0U,
-        hw_feature_stt_whispercpp_hip = 1U << 1U,
-        hw_feature_stt_whispercpp_openvino = 1U << 2U,
-        hw_feature_stt_whispercpp_opencl = 1U << 3U,
-        hw_feature_stt_whispercpp_vulkan = 1U << 4U,
-        hw_feature_stt_fasterwhisper_cuda = 1U << 5U,
-        hw_feature_stt_fasterwhisper_hip = 1U << 6U,
-        hw_feature_tts_coqui_cuda = 1U << 7U,
-        hw_feature_tts_coqui_hip = 1U << 8U,
-        hw_feature_tts_whisperspeech_cuda = 1U << 9U,
-        hw_feature_tts_whisperspeech_hip = 1U << 10U,
-        hw_feature_tts_parler_cuda = 1U << 11U,
-        hw_feature_tts_parler_hip = 1U << 12U,
-        hw_feature_tts_f5_cuda = 1U << 13U,
-        hw_feature_tts_f5_hip = 1U << 14U,
-        hw_feature_tts_kokoro_cuda = 1U << 15U,
-        hw_feature_tts_kokoro_hip = 1U << 16U,
-        hw_feature_all =
-            hw_feature_stt_whispercpp_cuda | hw_feature_stt_whispercpp_hip |
-            hw_feature_stt_whispercpp_openvino |
-            hw_feature_stt_whispercpp_opencl |
-            hw_feature_stt_whispercpp_vulkan |
-            hw_feature_stt_fasterwhisper_cuda |
-            hw_feature_stt_fasterwhisper_hip | hw_feature_tts_coqui_cuda |
-            hw_feature_tts_coqui_hip | hw_feature_tts_whisperspeech_cuda |
-            hw_feature_tts_whisperspeech_hip | hw_feature_tts_parler_cuda |
-            hw_feature_tts_parler_hip | hw_feature_tts_f5_cuda |
-            hw_feature_tts_f5_hip | hw_feature_tts_kokoro_cuda |
-            hw_feature_tts_kokoro_hip
+#define X(_engine, _role, _ffshift, ...) \
+    HW_FEATURE(cuda, _engine, _role) = 1U << _ffshift##U,
+        HW_CUDA_ENGINE_TABLE
+#undef X
+#define X(_engine, _role, _ffshift, ...) \
+    HW_FEATURE(hip, _engine, _role) = 1U << _ffshift##U,
+        HW_HIP_ENGINE_TABLE
+#undef X
+#define X(_engine, _role, _ffshift, ...) \
+    HW_FEATURE(vulkan, _engine, _role) = 1U << _ffshift##U,
+        HW_VULKAN_ENGINE_TABLE
+#undef X
+#define X(_engine, _role, _ffshift, ...) \
+    HW_FEATURE(openvino, _engine, _role) = 1U << _ffshift##U,
+        HW_OV_ENGINE_TABLE
+#undef X
+#define X(_engine, _role, _ffshift, ...) \
+    HW_FEATURE(opencl, _engine, _role) = 1U << _ffshift##U,
+        HW_OCL_ENGINE_TABLE
+#undef X
+        hw_feature_all = 0U
+#define X(_engine, _role, _ffshift, ...) | HW_FEATURE(cuda, _engine, _role)
+        HW_CUDA_ENGINE_TABLE
+#undef X
+#define X(_engine, _role, _ffshift, ...) | HW_FEATURE(hip, _engine, _role)
+        HW_HIP_ENGINE_TABLE
+#undef X
+#define X(_engine, _role, _ffshift, ...) | HW_FEATURE(vulkan, _engine, _role)
+        HW_VULKAN_ENGINE_TABLE
+#undef X
+#define X(_engine, _role, _ffshift, ...) | HW_FEATURE(openvino, _engine, _role)
+        HW_OV_ENGINE_TABLE
+#undef X
+#define X(_engine, _role, _ffshift, ...) | HW_FEATURE(opencl, _engine, _role)
+        HW_OCL_ENGINE_TABLE
+#undef X
     };
+    // clang-format on
     friend QDebug operator<<(QDebug d, hw_feature_flags_t hw_feature_flags);
+
+    enum class hw_t {
+#define X(_hw, ...) _hw,
+        HW_TABLE
+#undef X
+    };
 
     enum class option_t { OptionAuto = 0, OptionDefault = 1, OptionCustom = 2 };
     Q_ENUM(option_t)
@@ -702,7 +712,8 @@ class settings : public QSettings, public singleton<settings> {
     static launch_mode_t launch_mode;
     QString module_checksum(const QString &name) const;
     void set_module_checksum(const QString &name, const QString &value);
-    void scan_hw_devices(unsigned int hw_feature_flags);
+    void scan_hw_devices(
+        std::underlying_type_t<hw_feature_flags_t> hw_feature_flags);
     void update_hw_devices_from_fa(const QVariantMap &features_availability);
     void disable_hw_scan();
     void disable_py_scan();
@@ -996,9 +1007,9 @@ class settings : public QSettings, public singleton<settings> {
 #define X(name)                            \
     bool name##_autolang_with_sup() const; \
     void set_##name##_autolang_with_sup(bool value);
-    X(whispercpp)
+    X(whisper)
 #undef X
-#define X(name)                                            \
+#define X(name, ...)                                       \
     bool name##_gpu_flash_attn() const;                    \
     void set_##name##_gpu_flash_attn(bool value);          \
     Q_INVOKABLE void reset_##name##_gpu_flash_attn();      \
@@ -1017,10 +1028,11 @@ class settings : public QSettings, public singleton<settings> {
     void set_##name##_profile(engine_profile_t value);     \
     Q_INVOKABLE void reset_##name##_audioctx_size_value(); \
     Q_INVOKABLE void reset_##name##_options();
-    X(whispercpp)
-    X(fasterwhisper)
+    WHISPER_ENGINE_TABLE
 #undef X
-#define X(name, _)                                      \
+#define X(_name, _2, _gpu, ...) X##_gpu(_name)
+#define Xfalse(name)
+#define Xtrue(name)                                     \
     bool name##_use_gpu() const;                        \
     void set_##name##_use_gpu(bool value);              \
     Q_INVOKABLE bool has_##name##_gpu_device() const;   \
@@ -1030,8 +1042,11 @@ class settings : public QSettings, public singleton<settings> {
     void set_##name##_gpu_device(const QString &value); \
     int name##_gpu_device_idx() const;                  \
     void set_##name##_gpu_device_idx(int value);
-    GPU_ENGINE_TABLE
+    STT_ENGINE_TABLE
+    TTS_ENGINE_TABLE
 #undef X
+#undef Xtrue
+#undef Xfalse
 
    signals:
     // app
@@ -1121,15 +1136,19 @@ class settings : public QSettings, public singleton<settings> {
     void gpu_devices_changed();
     void scan_flags_changed();
 
-#define X(name) void name##_changed();
-    X(whispercpp)
-    X(fasterwhisper)
+#define X(name, ...) void name##_changed();
+    WHISPER_ENGINE_TABLE
 #undef X
-#define X(name, _)                    \
+#define X(_name, _2, _gpu, ...) X##_gpu(_name)
+#define Xfalse(name)
+#define Xtrue(name)                   \
     void name##_gpu_device_changed(); \
     void name##_use_gpu_changed();
-    GPU_ENGINE_TABLE
+    STT_ENGINE_TABLE
+    TTS_ENGINE_TABLE
 #undef X
+#undef Xtrue
+#undef Xfalse
 
    private:
     inline static const QString settings_filename =
@@ -1139,9 +1158,14 @@ class settings : public QSettings, public singleton<settings> {
     inline static const QString default_qt_style_fallback =
         QStringLiteral("org.kde.breeze");
     bool m_restart_required = false;
-#define X(name, _) QStringList m_##name##_gpu_devices;
-    GPU_ENGINE_TABLE
+#define X(_name, _2, _gpu, ...) X##_gpu(_name)
+#define Xfalse(name)
+#define Xtrue(name) QStringList m_##name##_gpu_devices;
+    STT_ENGINE_TABLE
+    TTS_ENGINE_TABLE
 #undef X
+#undef Xtrue
+#undef Xfalse
     std::vector<QString> m_rocm_gpu_versions;
     unsigned int m_addon_flags = addon_flags_t::AddonNone;
     unsigned int m_error_flags = error_flags_t::ErrorNoError;
@@ -1161,6 +1185,9 @@ class settings : public QSettings, public singleton<settings> {
     static QVariantList make_default_tts_voice_prompts();
     int tts_index_of_voice_prompt(const QString &name) const;
     QString tts_name_of_voice_prompt(const QString &name) const;
+    static bool hw_engine_disabled(
+        hw_t hw_type,
+        std::underlying_type_t<hw_feature_flags_t> hw_feature_flags);
 
     QString m_note;
 };

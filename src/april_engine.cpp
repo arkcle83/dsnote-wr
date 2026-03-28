@@ -296,12 +296,16 @@ void april_engine::decode_speech(april_buf_t& buf, bool eof) {
         ltrim(m_result_prev_segment);
         rtrim(m_result_prev_segment);
 
+#ifdef USE_PY
         if (m_punctuator) {
             m_result_prev_segment =
                 m_punctuator->process(m_result_prev_segment);
         } else {
             text_tools::restore_caps(m_result_prev_segment);
         }
+#else
+        text_tools::restore_caps(m_result_prev_segment);
+#endif
 
         text_tools::restore_punctuation_in_segments(m_result_prev_segment,
                                                     m_segments);
@@ -330,12 +334,15 @@ void april_engine::decode_speech(april_buf_t& buf, bool eof) {
 
         ltrim(result);
         rtrim(result);
-
+#ifdef USE_PY
         if (m_punctuator) {
             result = m_punctuator->process(result);
         } else {
             text_tools::restore_caps(result);
         }
+#else
+        text_tools::restore_caps(result);
+#endif
 
         if (!m_intermediate_text || m_intermediate_text != result) {
             set_intermediate_text(result, m_config.lang);

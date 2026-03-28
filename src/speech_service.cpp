@@ -1,4 +1,4 @@
-﻿/* Copyright (C) 2021-2025 Michal Kosciesza <michal@mkiol.net>
+﻿/* Copyright (C) 2021-2026 Michal Kosciesza <michal@mkiol.net>
  *
  * This Source Code Form is subject to the terms of the Mozilla Public
  * License, v. 2.0. If a copy of the MPL was not distributed with this
@@ -21,29 +21,35 @@
 #include <set>
 
 #include "april_engine.hpp"
-#include "coqui_engine.hpp"
 #include "ds_engine.hpp"
 #include "espeak_engine.hpp"
-#include "f5_engine.hpp"
-#include "fasterwhisper_engine.hpp"
 #include "file_source.h"
 #include "gpu_tools.hpp"
-#include "kokoro_engine.hpp"
+#include "logger.hpp"
 #include "media_compressor.hpp"
 #include "mic_source.h"
-#include "mimic3_engine.hpp"
 #include "module_tools.hpp"
-#include "parler_engine.hpp"
 #include "piper_engine.hpp"
-#include "py_executor.hpp"
-#include "py_tools.hpp"
 #include "rhvoice_engine.hpp"
 #include "sam_engine.hpp"
 #include "settings.h"
 #include "text_tools.hpp"
 #include "vosk_engine.hpp"
 #include "whisper_engine.hpp"
+
+#ifdef USE_PY
+#include "coqui_engine.hpp"
+#include "f5_engine.hpp"
+#include "fasterwhisper_engine.hpp"
+#include "kokoro_engine.hpp"
+#include "mimic3_engine.hpp"
+#include "parler_engine.hpp"
+#include "py_executor.hpp"
+#include "py_tools.hpp"
 #include "whisperspeech_engine.hpp"
+#endif
+
+#include "engine_table.hxx"
 
 QDebug operator<<(QDebug d, const stt_engine::config_t &config) {
     std::stringstream ss;
@@ -561,6 +567,7 @@ speech_service::speech_service(QObject *parent)
     m_features_availability_timer.setTimerType(Qt::VeryCoarseTimer);
     m_features_availability_timer.setInterval(1000);
     connect(&m_features_availability_timer, &QTimer::timeout, this, [this]() {
+#ifdef USE_PY
         qDebug() << "trying features availability update:"
                  << static_cast<bool>(
                         py_executor::instance()->libs_availability);
@@ -569,6 +576,9 @@ speech_service::speech_service(QObject *parent)
         } else {
             m_features_availability_timer.start();
         }
+#else
+            features_availability();
+#endif
     });
 
 #if QT_VERSION >= QT_VERSION_CHECK(6, 0, 0)
@@ -582,7 +592,9 @@ speech_service::speech_service(QObject *parent)
 
     setup_env();
 
+#ifdef USE_PY
     py_executor::instance()->start();
+#endif
 
     setup_modules();
 
@@ -1004,6 +1016,7 @@ speech_service::choose_model_config(engine_t engine_type,
             qDebug() << "can't find arabic diacritization model";
         }
 
+#ifdef USE_PY
         if (auto it = std::find_if(
                 models.cbegin(), models.cend(),
                 [&](const auto &model) {
@@ -1027,6 +1040,7 @@ speech_service::choose_model_config(engine_t engine_type,
         } else {
             qDebug() << "can't find punctuation model";
         }
+#endif
 
         return config;
     }
@@ -1094,6 +1108,7 @@ speech_service::choose_model_config(engine_t engine_type,
         return active_config;
     }
 
+#ifdef USE_PY
     // search for ttt model for stt lang
     // only when restore punctuation is enabled
     if (engine_type == engine_t::stt && active_config->stt &&
@@ -1112,6 +1127,7 @@ speech_service::choose_model_config(engine_t engine_type,
                 ttt_model_config_t{it->id, it->model_file};
         }
     }
+#endif
 
     return active_config;
 }
@@ -1256,7 +1272,7 @@ static stt_engine::sub_config_t stt_sub_config_from_options(
 static std::vector<int> whispercpp_vulkan_devices() {
     std::vector<int> devs;
 
-    auto dev_strs = settings::instance()->whispercpp_gpu_devices();
+    auto dev_strs = settings::instance()->whisper_gpu_devices();
     if (dev_strs.size() > 1) {
         for (auto it = std::next(dev_strs.cbegin()); it != dev_strs.cend();
              ++it) {
@@ -1267,6 +1283,94 @@ static std::vector<int> whispercpp_vulkan_devices() {
     }
 
     return devs;
+}
+
+bool speech_service::is_new_stt_engine_required(
+    models_manager::model_engine_t engine_type,
+    const stt_engine::config_t &config) const {
+    if (!m_stt_engine) return true;
+    auto &t = *m_stt_engine.get();
+    const auto &type = typeid(t);
+#define X(_name, _role, ...)                                             \
+    if (engine_type ==                                                   \
+            models_manager::model_engine_t::ENGINE_TYPE(_name, _role) && \
+        type != typeid(ENGINE_CLASS(_name))) {                           \
+        return true;                                                     \
+    }
+    STT_ENGINE_TABLE
+#undef X
+    if (m_stt_engine->model_files() != config.model_files) return true;
+    if (m_stt_engine->model_files() != config.model_files) return true;
+    if (m_stt_engine->lang() != config.lang) return true;
+    if (m_stt_engine->translate() != config.translate) return true;
+    if (config.use_gpu != m_stt_engine->use_gpu() ||
+        config.gpu_device != m_stt_engine->gpu_device())
+        return true;
+    if (m_stt_engine->audio_ctx_conf() != config.audio_ctx_conf) return true;
+    if (m_stt_engine->audio_ctx_size() != config.audio_ctx_size) return true;
+    if (m_stt_engine->cpu_threads() != config.cpu_threads) return true;
+    if (m_stt_engine->beam_search() != config.beam_search) return true;
+
+    return false;
+}
+
+bool speech_service::is_new_tts_engine_required(
+    models_manager::model_engine_t engine_type,
+    const tts_engine::config_t &config) const {
+    if (!m_tts_engine) {
+        return true;
+    }
+
+    auto &t = *m_tts_engine.get();
+    const auto &type = typeid(t);
+#define X(_name, _role, ...)                                             \
+    if (engine_type ==                                                   \
+            models_manager::model_engine_t::ENGINE_TYPE(_name, _role) && \
+        type != typeid(ENGINE_CLASS(_name))) {                           \
+        return true;                                                     \
+    }
+    TTS_ENGINE_TABLE
+#undef X
+
+    if (m_tts_engine->model_files() != config.model_files) {
+        return true;
+    }
+
+    bool engine_restart_when_speaker_changed =
+        engine_type == models_manager::model_engine_t::tts_piper ||
+        engine_type == models_manager::model_engine_t::tts_rhvoice ||
+        engine_type == models_manager::model_engine_t::tts_espeak;
+#ifdef USE_PY
+    engine_restart_when_speaker_changed =
+        engine_restart_when_speaker_changed ||
+        engine_type == models_manager::model_engine_t::tts_kokoro;
+#endif
+    if (engine_restart_when_speaker_changed &&
+        m_tts_engine->speaker() != config.speaker_id) {
+        return true;
+    }
+
+    bool engine_restart_when_lang_changed =
+        engine_type == models_manager::model_engine_t::tts_espeak;
+    if (engine_restart_when_lang_changed &&
+        m_tts_engine->lang() != config.lang) {
+        return true;
+    }
+
+    // bool engine_restart_when_ref_prompt_changed =
+    //     engine_type ==
+    //     models_manager::model_engine_t::tts_parler;
+    // if (engine_restart_when_ref_prompt_changed &&
+    //     m_tts_engine->ref_prompt() != config.ref_prompt) {
+    //     return true;
+    // }
+
+    if (config.use_gpu != m_tts_engine->use_gpu() ||
+        config.gpu_device != m_tts_engine->gpu_device()) {
+        return true;
+    }
+
+    return false;
 }
 
 QString speech_service::restart_stt_engine(speech_mode_t speech_mode,
@@ -1357,65 +1461,26 @@ QString speech_service::restart_stt_engine(speech_mode_t speech_mode,
         }
         
         if (model_config->stt->engine == models_manager::model_engine_t::stt_whisper) {
-            ENGINE_OPTS(whispercpp)
+            ENGINE_OPTS(whisper)
             if (config.gpu_device.api == stt_engine::gpu_api_t::vulkan) {
                 config.available_devices = whispercpp_vulkan_devices();
             }
-            if (!settings::instance()->whispercpp_autolang_with_sup()) {
+            if (!settings::instance()->whisper_autolang_with_sup()) {
                 // disable auto-lang with sup model
                 config.model_files.scorer_file.clear();
             }
-        } else if (model_config->stt->engine == models_manager::model_engine_t::stt_fasterwhisper) {
+        }
+#ifdef USE_PY
+        if (model_config->stt->engine == models_manager::model_engine_t::stt_fasterwhisper) {
             ENGINE_OPTS(fasterwhisper)
         }
+#endif
 #undef ENGINE_OPTS
         // clang-format on
 
-        bool new_engine_required = [&] {
-            if (!m_stt_engine) return true;
-
-            const auto &type = typeid(*m_stt_engine);
-            if (model_config->stt->engine ==
-                    models_manager::model_engine_t::stt_ds &&
-                type != typeid(ds_engine))
-                return true;
-            if (model_config->stt->engine ==
-                    models_manager::model_engine_t::stt_vosk &&
-                type != typeid(vosk_engine))
-                return true;
-            if (model_config->stt->engine ==
-                    models_manager::model_engine_t::stt_whisper &&
-                type != typeid(whisper_engine))
-                return true;
-            if (model_config->stt->engine ==
-                    models_manager::model_engine_t::stt_fasterwhisper &&
-                type != typeid(fasterwhisper_engine))
-                return true;
-            if (model_config->stt->engine ==
-                    models_manager::model_engine_t::stt_april &&
-                type != typeid(april_engine))
-                return true;
-
-            if (m_stt_engine->model_files() != config.model_files) return true;
-            if (m_stt_engine->model_files() != config.model_files) return true;
-            if (m_stt_engine->lang() != config.lang) return true;
-            if (m_stt_engine->translate() != config.translate) return true;
-            if (config.use_gpu != m_stt_engine->use_gpu() ||
-                config.gpu_device != m_stt_engine->gpu_device())
-                return true;
-            if (m_stt_engine->audio_ctx_conf() != config.audio_ctx_conf)
-                return true;
-            if (m_stt_engine->audio_ctx_size() != config.audio_ctx_size)
-                return true;
-            if (m_stt_engine->cpu_threads() != config.cpu_threads) return true;
-            if (m_stt_engine->beam_search() != config.beam_search) return true;
-
-            return false;
-        }();
-
         qDebug() << "restart stt engine config:" << config;
 
-        if (new_engine_required) {
+        if (is_new_stt_engine_required(model_config->stt->engine, config)) {
             qDebug() << "new stt engine required";
 
             if (m_stt_engine) {
@@ -1467,42 +1532,20 @@ QString speech_service::restart_stt_engine(speech_mode_t speech_mode,
 
             try {
                 switch (model_config->stt->engine) {
-                    case models_manager::model_engine_t::stt_ds:
-                        m_stt_engine = std::make_unique<ds_engine>(
-                            std::move(config), std::move(call_backs));
-                        break;
-                    case models_manager::model_engine_t::stt_vosk:
-                        m_stt_engine = std::make_unique<vosk_engine>(
-                            std::move(config), std::move(call_backs));
-                        break;
-                    case models_manager::model_engine_t::stt_whisper:
-                        m_stt_engine = std::make_unique<whisper_engine>(
-                            std::move(config), std::move(call_backs));
-                        break;
-                    case models_manager::model_engine_t::stt_fasterwhisper:
-                        m_stt_engine = std::make_unique<fasterwhisper_engine>(
-                            std::move(config), std::move(call_backs));
-                        break;
-                    case models_manager::model_engine_t::stt_april:
-                        m_stt_engine = std::make_unique<april_engine>(
-                            std::move(config), std::move(call_backs));
-                        break;
-                    case models_manager::model_engine_t::ttt_hftc:
-                    case models_manager::model_engine_t::ttt_tashkeel:
-                    case models_manager::model_engine_t::ttt_unikud:
-                    case models_manager::model_engine_t::tts_coqui:
-                    case models_manager::model_engine_t::tts_piper:
-                    case models_manager::model_engine_t::tts_espeak:
-                    case models_manager::model_engine_t::tts_rhvoice:
-                    case models_manager::model_engine_t::tts_mimic3:
-                    case models_manager::model_engine_t::tts_whisperspeech:
-                    case models_manager::model_engine_t::tts_sam:
-                    case models_manager::model_engine_t::tts_parler:
-                    case models_manager::model_engine_t::tts_f5:
-                    case models_manager::model_engine_t::tts_kokoro:
-                    case models_manager::model_engine_t::mnt_bergamot:
-                        throw std::runtime_error{
-                            "invalid model engine, expected stt"};
+#define X(_name, _role, ...)                                        \
+    case models_manager::model_engine_t::ENGINE_TYPE(_name, _role): \
+        m_stt_engine = std::make_unique<ENGINE_CLASS(_name)>(       \
+            std::move(config), std::move(call_backs));              \
+        break;
+                    STT_ENGINE_TABLE
+#undef X
+#define X(_name, _role, ...) \
+    case models_manager::model_engine_t::ENGINE_TYPE(_name, _role):
+                    TTT_ENGINE_TABLE
+                    TTS_ENGINE_TABLE
+                    MNT_ENGINE_TABLE
+#undef X
+                    LOGF("invalid model engine, expected stt");
                 }
             } catch (const std::runtime_error &err) {
                 qWarning() << "failed to create stt engine:" << err.what();
@@ -1656,26 +1699,22 @@ QString speech_service::restart_tts_engine(const QString &model_id,
                 .toStdString();
 
         // clang-format off
-#define X(name) \
-        if (settings::instance()->name##_use_gpu() && settings::instance()->has_##name##_gpu_device()) { \
-            if (auto device = make_gpu_device<tts_engine>(settings::instance()->name##_gpu_device(), settings::instance()->name##_auto_gpu_device())) { \
+#define X(_name, _role, _gpu, ...) X ## _gpu(_name, _role)
+#define Xtrue(_name, _role) \
+        if (model_config->tts->engine == models_manager::model_engine_t::ENGINE_TYPE(_name, _role) && \
+            settings::instance()->_name##_use_gpu() && \
+            settings::instance()->has_##_name##_gpu_device()) { \
+            if (auto device = make_gpu_device<tts_engine>(settings::instance()->_name##_gpu_device(), \
+                settings::instance()->_name##_auto_gpu_device())) { \
                 config.gpu_device = std::move(*device); \
                 config.use_gpu = true; \
             } \
         }
-        
-        if (model_config->tts->engine == models_manager::model_engine_t::tts_coqui) {
-            X(coqui)
-        } else if (model_config->tts->engine == models_manager::model_engine_t::tts_whisperspeech) {
-            X(whisperspeech)
-        } else if (model_config->tts->engine == models_manager::model_engine_t::tts_parler) {
-            X(parler)
-        } else if (model_config->tts->engine == models_manager::model_engine_t::tts_f5) {
-            X(f5)
-        } else if (model_config->tts->engine == models_manager::model_engine_t::tts_kokoro) {
-            X(kokoro)
-        }
+#define Xfalse(_name, _role)
+        TTS_ENGINE_TABLE
 #undef X
+#undef Xtrue
+#undef Xfalse
         // clang-format on
 
         if (model_config->tts->model_id.contains("fairseq")) {
@@ -1703,90 +1742,9 @@ QString speech_service::restart_tts_engine(const QString &model_id,
             }
         }
 
-        bool new_engine_required = [&] {
-            if (!m_tts_engine) return true;
-
-            const auto &type = typeid(*m_tts_engine);
-            if (model_config->tts->engine ==
-                    models_manager::model_engine_t::tts_coqui &&
-                type != typeid(coqui_engine))
-                return true;
-            if (model_config->tts->engine ==
-                    models_manager::model_engine_t::tts_piper &&
-                type != typeid(piper_engine))
-                return true;
-            if (model_config->tts->engine ==
-                    models_manager::model_engine_t::tts_rhvoice &&
-                type != typeid(rhvoice_engine))
-                return true;
-            if (model_config->tts->engine ==
-                    models_manager::model_engine_t::tts_mimic3 &&
-                type != typeid(mimic3_engine))
-                return true;
-            if (model_config->tts->engine ==
-                    models_manager::model_engine_t::tts_whisperspeech &&
-                type != typeid(whisperspeech_engine))
-                return true;
-            if (model_config->tts->engine ==
-                    models_manager::model_engine_t::tts_espeak &&
-                type != typeid(espeak_engine))
-                return true;
-            if (model_config->tts->engine ==
-                    models_manager::model_engine_t::tts_sam &&
-                type != typeid(sam_engine))
-                return true;
-            if (model_config->tts->engine ==
-                    models_manager::model_engine_t::tts_parler &&
-                type != typeid(parler_engine))
-                return true;
-            if (model_config->tts->engine ==
-                    models_manager::model_engine_t::tts_f5 &&
-                type != typeid(f5_engine))
-                return true;
-            if (model_config->tts->engine ==
-                    models_manager::model_engine_t::tts_kokoro &&
-                type != typeid(kokoro_engine))
-                return true;
-
-            if (m_tts_engine->model_files() != config.model_files) return true;
-
-            bool engine_restart_when_speaker_changed =
-                model_config->tts->engine ==
-                    models_manager::model_engine_t::tts_piper ||
-                model_config->tts->engine ==
-                    models_manager::model_engine_t::tts_rhvoice ||
-                model_config->tts->engine ==
-                    models_manager::model_engine_t::tts_espeak ||
-                model_config->tts->engine ==
-                    models_manager::model_engine_t::tts_kokoro;
-            if (engine_restart_when_speaker_changed &&
-                m_tts_engine->speaker() != config.speaker_id)
-                return true;
-
-            bool engine_restart_when_lang_changed =
-                model_config->tts->engine ==
-                models_manager::model_engine_t::tts_espeak;
-            if (engine_restart_when_lang_changed &&
-                m_tts_engine->lang() != config.lang)
-                return true;
-
-            // bool engine_restart_when_ref_prompt_changed =
-            //     model_config->tts->engine ==
-            //     models_manager::model_engine_t::tts_parler;
-            // if (engine_restart_when_ref_prompt_changed &&
-            //     m_tts_engine->ref_prompt() != config.ref_prompt)
-            //     return true;
-
-            if (config.use_gpu != m_tts_engine->use_gpu() ||
-                config.gpu_device != m_tts_engine->gpu_device())
-                return true;
-
-            return false;
-        }();
-
         qDebug() << "restart tts engine config:" << config;
 
-        if (new_engine_required) {
+        if (is_new_tts_engine_required(model_config->tts->engine, config)) {
             qDebug() << "new tts engine required";
 
             if (m_tts_engine) {
@@ -1823,73 +1781,43 @@ QString speech_service::restart_tts_engine(const QString &model_id,
                         emit tts_engine_error(m_current_task->id);
                 }};
 
+            if (model_config->tts->engine ==
+                    models_manager::model_engine_t::tts_piper ||
+                model_config->tts->engine ==
+                    models_manager::model_engine_t::tts_espeak) {
+                config.data_dir =
+                    module_tools::unpacked_dir("espeakdata").toStdString();
+            } else if (model_config->tts->engine ==
+                       models_manager::model_engine_t::tts_rhvoice) {
+                config.data_dir =
+                    module_tools::unpacked_dir("rhvoicedata").toStdString();
+                config.config_dir =
+                    module_tools::unpacked_dir("rhvoiceconfig").toStdString();
+            }
+#ifdef USE_PY
+            if (model_config->tts->engine ==
+                models_manager::model_engine_t::tts_mimic3) {
+                config.data_dir =
+                    module_tools::unpacked_dir("mimic3").toStdString();
+            }
+#endif
+
             try {
                 switch (model_config->tts->engine) {
-                    case models_manager::model_engine_t::tts_coqui:
-                        m_tts_engine = std::make_unique<coqui_engine>(
-                            std::move(config), std::move(call_backs));
-                        break;
-                    case models_manager::model_engine_t::tts_piper:
-                        config.data_dir =
-                            module_tools::unpacked_dir("espeakdata")
-                                .toStdString();
-                        m_tts_engine = std::make_unique<piper_engine>(
-                            std::move(config), std::move(call_backs));
-                        break;
-                    case models_manager::model_engine_t::tts_espeak:
-                        config.data_dir =
-                            module_tools::unpacked_dir("espeakdata")
-                                .toStdString();
-                        m_tts_engine = std::make_unique<espeak_engine>(
-                            std::move(config), std::move(call_backs));
-                        break;
-                    case models_manager::model_engine_t::tts_rhvoice:
-                        config.data_dir =
-                            module_tools::unpacked_dir("rhvoicedata")
-                                .toStdString();
-                        config.config_dir =
-                            module_tools::unpacked_dir("rhvoiceconfig")
-                                .toStdString();
-                        m_tts_engine = std::make_unique<rhvoice_engine>(
-                            std::move(config), std::move(call_backs));
-                        break;
-                    case models_manager::model_engine_t::tts_mimic3:
-                        config.data_dir =
-                            module_tools::unpacked_dir("mimic3").toStdString();
-                        m_tts_engine = std::make_unique<mimic3_engine>(
-                            std::move(config), std::move(call_backs));
-                        break;
-                    case models_manager::model_engine_t::tts_whisperspeech:
-                        m_tts_engine = std::make_unique<whisperspeech_engine>(
-                            std::move(config), std::move(call_backs));
-                        break;
-                    case models_manager::model_engine_t::tts_sam:
-                        m_tts_engine = std::make_unique<sam_engine>(
-                            std::move(config), std::move(call_backs));
-                        break;
-                    case models_manager::model_engine_t::tts_parler:
-                        m_tts_engine = std::make_unique<parler_engine>(
-                            std::move(config), std::move(call_backs));
-                        break;
-                    case models_manager::model_engine_t::tts_f5:
-                        m_tts_engine = std::make_unique<f5_engine>(
-                            std::move(config), std::move(call_backs));
-                        break;
-                    case models_manager::model_engine_t::tts_kokoro:
-                        m_tts_engine = std::make_unique<kokoro_engine>(
-                            std::move(config), std::move(call_backs));
-                        break;
-                    case models_manager::model_engine_t::ttt_hftc:
-                    case models_manager::model_engine_t::ttt_tashkeel:
-                    case models_manager::model_engine_t::ttt_unikud:
-                    case models_manager::model_engine_t::stt_ds:
-                    case models_manager::model_engine_t::stt_vosk:
-                    case models_manager::model_engine_t::stt_whisper:
-                    case models_manager::model_engine_t::stt_fasterwhisper:
-                    case models_manager::model_engine_t::stt_april:
-                    case models_manager::model_engine_t::mnt_bergamot:
-                        throw std::runtime_error{
-                            "invalid model engine, expected tts"};
+#define X(_name, _role, ...)                                        \
+    case models_manager::model_engine_t::ENGINE_TYPE(_name, _role): \
+        m_tts_engine = std::make_unique<ENGINE_CLASS(_name)>(       \
+            std::move(config), std::move(call_backs));              \
+        break;
+                    TTS_ENGINE_TABLE
+#undef X
+#define X(_name, _role, ...) \
+    case models_manager::model_engine_t::ENGINE_TYPE(_name, _role):
+                    TTT_ENGINE_TABLE
+                    STT_ENGINE_TABLE
+                    MNT_ENGINE_TABLE
+#undef X
+                    LOGF("invalid model engine, expected tts");
                 }
             } catch (const std::runtime_error &err) {
                 qWarning() << "failed to create tts engine:" << err.what();
@@ -3030,374 +2958,341 @@ QVariantMap speech_service::mnt_out_langs(QString in_lang) const {
 }
 
 QVariantMap speech_service::features_availability() {
-    if (m_features_availability.isEmpty()) {
-        auto py_availability = py_executor::instance()->libs_availability;
-        if (py_availability) {
-            qDebug() << "features availability ready";
-            unsigned int hw_feature_flags =
-                settings::hw_feature_flags_t::hw_feature_none;
-
-            m_features_availability.insert(
-                "coqui-tts",
-                QVariantList{py_availability->coqui_tts, "Coqui TTS"});
-            m_features_availability.insert(
-                "whisperspeech-tts",
-                QVariantList{py_availability->whisperspeech_tts,
-                             "WhisperSpeech TTS"});
-            m_features_availability.insert(
-                "parler-tts",
-                QVariantList{py_availability->parler_tts, "Parler-TTS"});
-            m_features_availability.insert(
-                "f5-tts", QVariantList{py_availability->f5_tts, "F5-TTS"});
-            m_features_availability.insert(
-                "kokoro-tts",
-                QVariantList{py_availability->kokoro_tts, "Kokoro TTS"});
-            m_features_availability.insert(
-                "kokoro-tts-ja", QVariantList{py_availability->kokoro_tts &&
-                                                  py_availability->kokoro_ja,
-                                              "Kokoro TTS " + tr("Japanese")});
-            m_features_availability.insert(
-                "kokoro-tts-zh", QVariantList{py_availability->kokoro_tts &&
-                                                  py_availability->kokoro_zh,
-                                              "Kokoro TTS " + tr("Chinese")});
-#ifdef ARCH_X86_64
-            auto has_cuda = gpu_tools::has_cuda_runtime();
-            auto has_cudnn = gpu_tools::has_cudnn();
-            auto has_hip = gpu_tools::has_hip();
-
-            bool tts_coqui_cuda =
-                py_availability->coqui_tts && py_availability->torch_cuda;
-            bool tts_coqui_hip =
-                py_availability->coqui_tts && py_availability->torch_hip;
-            m_features_availability.insert(
-                "coqui-tts-cuda",
-                QVariantList{tts_coqui_cuda,
-                             "Coqui TTS CUDA " + tr("HW acceleration")});
-            m_features_availability.insert(
-                "coqui-tts-hip",
-                QVariantList{tts_coqui_hip,
-                             "Coqui TTS ROCm " + tr("HW acceleration")});
-            if (tts_coqui_cuda)
-                hw_feature_flags |=
-                    settings::hw_feature_flags_t::hw_feature_tts_coqui_cuda;
-            if (tts_coqui_hip)
-                hw_feature_flags |=
-                    settings::hw_feature_flags_t::hw_feature_tts_coqui_hip;
-
-            bool tts_whisperspeech_cuda = py_availability->whisperspeech_tts &&
-                                          py_availability->torch_cuda;
-            bool tts_whisperspeech_hip = py_availability->whisperspeech_tts &&
-                                         py_availability->torch_hip;
-            m_features_availability.insert(
-                "whisperspeech-tts-cuda",
-                QVariantList{
-                    tts_whisperspeech_cuda,
-                    "WhisperSpeech TTS CUDA " + tr("HW acceleration")});
-            m_features_availability.insert(
-                "whisperspeech-tts-hip",
-                QVariantList{tts_whisperspeech_hip, "WhisperSpeech TTS ROCm " +
-                                                        tr("HW acceleration")});
-            if (tts_whisperspeech_cuda)
-                hw_feature_flags |= settings::hw_feature_flags_t::
-                    hw_feature_tts_whisperspeech_cuda;
-            if (tts_whisperspeech_hip)
-                hw_feature_flags |= settings::hw_feature_flags_t::
-                    hw_feature_tts_whisperspeech_hip;
-
-            bool tts_parler_cuda =
-                py_availability->parler_tts && py_availability->torch_cuda;
-            bool tts_parler_hip =
-                py_availability->parler_tts && py_availability->torch_hip;
-            m_features_availability.insert(
-                "parler-tts-cuda",
-                QVariantList{tts_parler_cuda,
-                             "Parler-TTS CUDA " + tr("HW acceleration")});
-            m_features_availability.insert(
-                "parler-tts-hip",
-                QVariantList{tts_parler_hip,
-                             "Parler-TTS ROCm " + tr("HW acceleration")});
-            if (tts_parler_cuda)
-                hw_feature_flags |=
-                    settings::hw_feature_flags_t::hw_feature_tts_parler_cuda;
-            if (tts_parler_hip)
-                hw_feature_flags |=
-                    settings::hw_feature_flags_t::hw_feature_tts_parler_hip;
-
-            bool tts_f5_cuda =
-                py_availability->f5_tts && py_availability->torch_cuda;
-            bool tts_f5_hip =
-                py_availability->f5_tts && py_availability->torch_hip;
-            m_features_availability.insert(
-                "f5-tts-cuda",
-                QVariantList{tts_f5_cuda,
-                             "F5-TTS CUDA " + tr("HW acceleration")});
-            m_features_availability.insert(
-                "f5-tts-hip",
-                QVariantList{tts_f5_hip,
-                             "F5-TTS ROCm " + tr("HW acceleration")});
-            if (tts_f5_cuda)
-                hw_feature_flags |=
-                    settings::hw_feature_flags_t::hw_feature_tts_f5_cuda;
-            if (tts_f5_hip)
-                hw_feature_flags |=
-                    settings::hw_feature_flags_t::hw_feature_tts_f5_hip;
-
-            bool tts_kokoro_cuda =
-                py_availability->kokoro_tts && py_availability->torch_cuda;
-            bool tts_kokoro_hip =
-                py_availability->kokoro_tts && py_availability->torch_hip;
-            m_features_availability.insert(
-                "kokoro-tts-cuda",
-                QVariantList{tts_kokoro_cuda,
-                             "Kokoro TTS CUDA " + tr("HW acceleration")});
-            m_features_availability.insert(
-                "kokoro-tts-hip",
-                QVariantList{tts_kokoro_hip,
-                             "Kokoro TTS ROCm " + tr("HW acceleration")});
-            if (tts_kokoro_cuda)
-                hw_feature_flags |=
-                    settings::hw_feature_flags_t::hw_feature_tts_kokoro_cuda;
-            if (tts_kokoro_hip)
-                hw_feature_flags |=
-                    settings::hw_feature_flags_t::hw_feature_tts_kokoro_hip;
-#endif
-            m_features_availability.insert(
-                "coqui-tts-ja", QVariantList{py_availability->coqui_tts &&
-                                                 py_availability->mecab,
-                                             "Coqui TTS " + tr("Japanese")});
-            m_features_availability.insert(
-                "coqui-tts-ko", QVariantList{py_availability->coqui_tts &&
-                                                 py_availability->uroman,
-                                             "Coqui TTS " + tr("Korean")});
-            m_features_availability.insert(
-                "mimic3-tts",
-                QVariantList{py_availability->mimic3_tts, "Mimic3 TTS"});
-            m_features_availability.insert(
-                "mimic3-tts-de", QVariantList{py_availability->mimic3_tts &&
-                                                  py_availability->gruut_de,
-                                              "Mimic3 TTS " + tr("German")});
-            m_features_availability.insert(
-                "mimic3-tts-es", QVariantList{py_availability->mimic3_tts &&
-                                                  py_availability->gruut_es,
-                                              "Mimic3 TTS " + tr("Spanish")});
-            m_features_availability.insert(
-                "mimic3-tts-fr", QVariantList{py_availability->mimic3_tts &&
-                                                  py_availability->gruut_fr,
-                                              "Mimic3 TTS " + tr("French")});
-            m_features_availability.insert(
-                "mimic3-tts-it", QVariantList{py_availability->mimic3_tts &&
-                                                  py_availability->gruut_it,
-                                              "Mimic3 TTS " + tr("Italian")});
-            m_features_availability.insert(
-                "mimic3-tts-ru", QVariantList{py_availability->mimic3_tts &&
-                                                  py_availability->gruut_ru,
-                                              "Mimic3 TTS " + tr("Russian")});
-            m_features_availability.insert(
-                "mimic3-tts-sw", QVariantList{py_availability->mimic3_tts &&
-                                                  py_availability->gruut_sw,
-                                              "Mimic3 TTS " + tr("Swahili")});
-            m_features_availability.insert(
-                "mimic3-tts-fa", QVariantList{py_availability->mimic3_tts &&
-                                                  py_availability->gruut_fa,
-                                              "Mimic3 TTS " + tr("Persian")});
-            m_features_availability.insert(
-                "mimic3-tts-nl", QVariantList{py_availability->mimic3_tts &&
-                                                  py_availability->gruut_nl,
-                                              "Mimic3 TTS " + tr("Dutch")});
-            m_features_availability.insert(
-                "faster-whisper-stt",
-                QVariantList{py_availability->faster_whisper,
-                             "FasterWhisper STT"});
-#ifdef ARCH_X86_64
-            bool stt_fasterwhisper_cuda = py_availability->faster_whisper &&
-                                          py_availability->ctranslate2_cuda &&
-                                          has_cuda && has_cudnn;
-            bool stt_fasterwhisper_hip = py_availability->faster_whisper &&
-                                         py_availability->ctranslate2_cuda &&
-                                         has_hip;
-            stt_fasterwhisper_hip =
-                false;  // right now, ct2 doesn't support hip
-            m_features_availability.insert(
-                "faster-whisper-stt-cuda",
-                QVariantList{
-                    stt_fasterwhisper_cuda,
-                    "FasterWhisper STT CUDA " + tr("HW acceleration")});
-            // consider this: https://github.com/arlo-phoenix/CTranslate2-rocm
-            /*m_features_availability.insert(
-                "faster-whisper-stt-hip",
-                QVariantList{stt_fasterwhisper_hip, "FasterWhisper
-                STT ROCm " + tr("HW acceleration")});*/
-            if (stt_fasterwhisper_cuda) {
-                hw_feature_flags |= settings::hw_feature_flags_t::
-                    hw_feature_stt_fasterwhisper_cuda;
-            }
-            if (stt_fasterwhisper_hip) {
-                hw_feature_flags |= settings::hw_feature_flags_t::
-                    hw_feature_stt_fasterwhisper_hip;
-            }
-#endif
-            m_features_availability.insert(
-                "punctuator", QVariantList{py_availability->transformers,
-                                           tr("Punctuation restoration")});
-            m_features_availability.insert(
-                "diacritizer-he",
-                QVariantList{
-                    py_availability->transformers && py_availability->unikud,
-                    tr("Diacritics restoration for Hebrew")});
-
-            bool stt_ds = ds_engine::available();
-            bool stt_whispercpp = whisper_engine::available();
-            bool stt_whispercpp_vulkan = whisper_engine::has_vulkan();
-            bool mnt = mnt_engine::available();
-
-            m_features_availability.insert(
-                "coqui-stt", QVariantList{stt_ds, "Coqui/DeepSpeech STT"});
-            m_features_availability.insert("translator",
-                                           QVariantList{mnt, "Translator"});
-            m_features_availability.insert(
-                "whispercpp-stt",
-                QVariantList{stt_whispercpp, "WhisperCpp STT "});
-            m_features_availability.insert(
-                "whispercpp-stt-vulkan",
-                QVariantList{stt_whispercpp_vulkan,
-                             "WhisperCpp STT Vulkan " + tr("HW acceleration")});
-            if (stt_whispercpp_vulkan)
-                hw_feature_flags |= settings::hw_feature_flags_t::
-                    hw_feature_stt_whispercpp_vulkan;
-#ifdef ARCH_X86_64
-            bool stt_whispercpp_cuda = whisper_engine::has_cuda();
-            m_features_availability.insert(
-                "whispercpp-stt-cuda",
-                QVariantList{whisper_engine::has_cuda(),
-                             "WhisperCpp STT CUDA " + tr("HW acceleration")});
-            if (stt_whispercpp_cuda)
-                hw_feature_flags |= settings::hw_feature_flags_t::
-                    hw_feature_stt_whispercpp_cuda;
-
-            bool stt_whispercpp_hip = whisper_engine::has_hip();
-            m_features_availability.insert(
-                "whispercpp-stt-hip",
-                QVariantList{stt_whispercpp_hip,
-                             "WhisperCpp STT ROCm " + tr("HW acceleration")});
-            if (stt_whispercpp_hip)
-                hw_feature_flags |=
-                    settings::hw_feature_flags_t::hw_feature_stt_whispercpp_hip;
-
-            bool stt_whispercpp_openvino = whisper_engine::has_openvino();
-            m_features_availability.insert(
-                "whispercpp-stt-openvino",
-                QVariantList{
-                    stt_whispercpp_openvino,
-                    "WhisperCpp STT OpenVINO " + tr("HW acceleration")});
-            if (stt_whispercpp_openvino)
-                hw_feature_flags |= settings::hw_feature_flags_t::
-                    hw_feature_stt_whispercpp_openvino;
-
-            bool stt_whispercpp_opencl = whisper_engine::has_opencl();
-            m_features_availability.insert(
-                "whispercpp-stt-opencl",
-                QVariantList{stt_whispercpp_opencl,
-                             "WhisperCpp STT OpenCL " + tr("HW acceleration")});
-            if (stt_whispercpp_opencl)
-                hw_feature_flags |= settings::hw_feature_flags_t::
-                    hw_feature_stt_whispercpp_opencl;
-#endif
-            auto tts_rhvoice = rhvoice_engine::available();
-            m_features_availability.insert(
-                "rhvoice-tts", QVariantList{tts_rhvoice, "RHVoice TTS"});
-
-            auto stt_vosk = vosk_engine::available();
-            m_features_availability.insert("vosk-stt",
-                                           QVariantList{stt_vosk, "Vosk STT"});
-
-            models_manager::instance()->update_models_using_availability(
-                {/*tts_coqui=*/py_availability->coqui_tts,
-                 /*tts_mimic3=*/py_availability->mimic3_tts,
-                 /*tts_mimic3_de=*/py_availability->mimic3_tts &&
-                     py_availability->gruut_de,
-                 /*tts_mimic3_es=*/py_availability->mimic3_tts &&
-                     py_availability->gruut_es,
-                 /*tts_mimic3_fr=*/py_availability->mimic3_tts &&
-                     py_availability->gruut_fr,
-                 /*tts_mimic3_it=*/py_availability->mimic3_tts &&
-                     py_availability->gruut_it,
-                 /*tts_mimic3_ru=*/py_availability->mimic3_tts &&
-                     py_availability->gruut_ru,
-                 /*tts_mimic3_sw=*/py_availability->mimic3_tts &&
-                     py_availability->gruut_sw,
-                 /*tts_mimic3_fa=*/py_availability->mimic3_tts &&
-                     py_availability->gruut_fa,
-                 /*tts_mimic3_nl=*/py_availability->mimic3_tts &&
-                     py_availability->gruut_nl,
-                 /*tts_rhvoice=*/tts_rhvoice,
-                 /*tts_whisperspeech=*/py_availability->whisperspeech_tts,
-                 /*tts_parler=*/py_availability->parler_tts,
-                 /*tts_f5=*/py_availability->f5_tts,
-                 /*tts_kokoro=*/py_availability->kokoro_tts,
-                 /*tts_kokoro_ja=*/py_availability->kokoro_ja,
-                 /*tts_kokoro_zh=*/py_availability->kokoro_zh,
-                 /*stt_fasterwhisper=*/py_availability->faster_whisper,
-                 /*stt_ds=*/stt_ds,
-                 /*stt_vosk=*/stt_vosk,
-                 /*stt_whispercpp=*/stt_whispercpp,
-                 /*mnt_bergamot=*/mnt,
-                 /*ttt_hftc=*/py_availability->transformers,
-                 /*option_r=*/py_availability->uroman});
-
-            settings::instance()->scan_hw_devices(hw_feature_flags);
-
-            m_features_availability.insert(
-                "whispercpp-gpu-devices",
-                variant_list_from_list(
-                    settings::instance()->whispercpp_gpu_devices()));
-            m_features_availability.insert(
-                "fasterwhisper-gpu-devices",
-                variant_list_from_list(
-                    settings::instance()->fasterwhisper_gpu_devices()));
-            m_features_availability.insert(
-                "coqui-gpu-devices",
-                variant_list_from_list(
-                    settings::instance()->coqui_gpu_devices()));
-            m_features_availability.insert(
-                "whisperspeech-gpu-devices",
-                variant_list_from_list(
-                    settings::instance()->whisperspeech_gpu_devices()));
-            m_features_availability.insert(
-                "parler-gpu-devices",
-                variant_list_from_list(
-                    settings::instance()->parler_gpu_devices()));
-            m_features_availability.insert(
-                "f5-gpu-devices",
-                variant_list_from_list(settings::instance()->f5_gpu_devices()));
-            m_features_availability.insert(
-                "kokoro-gpu-devices",
-                variant_list_from_list(
-                    settings::instance()->kokoro_gpu_devices()));
-
-            m_features_availability.insert(
-                "addon-flags",
-                QVariantList{} << settings::instance()->addon_flags());
-            m_features_availability.insert(
-                "system-flags",
-                QVariantList{} << settings::instance()->system_flags());
-            m_features_availability.insert(
-                "error-flags",
-                QVariantList{} << settings::instance()->error_flags());
-
-            m_features_availability.insert(
-                "py-version",
-                QVariantList{} << QString::fromStdString(
-                    fmt::format("{}.{}.{}", py_availability->py_version.major,
-                                py_availability->py_version.minor,
-                                py_availability->py_version.micro)));
-            refresh_status();
-
-            emit features_availability_updated();
-        } else {
-            qDebug() << "delaying features availability";
-            m_features_availability_timer.start();
-        }
+    if (!m_features_availability.isEmpty()) {
+        return m_features_availability;
     }
+
+    unsigned int hw_feature_flags =
+        settings::hw_feature_flags_t::hw_feature_none;
+
+    models_manager::models_availability_t ma;
+
+#ifdef USE_PY
+    auto py_availability = py_executor::instance()->libs_availability;
+    if (!py_availability) {
+        qDebug() << "delaying features availability";
+        m_features_availability_timer.start();
+        return m_features_availability;
+    }
+
+    qDebug() << "features availability ready";
+
+    m_features_availability.insert(
+        "coqui-tts", QVariantList{py_availability->coqui_tts, "Coqui TTS"});
+    m_features_availability.insert(
+        "whisperspeech-tts",
+        QVariantList{py_availability->whisperspeech_tts, "WhisperSpeech TTS"});
+    m_features_availability.insert(
+        "parler-tts", QVariantList{py_availability->parler_tts, "Parler-TTS"});
+    m_features_availability.insert(
+        "f5-tts", QVariantList{py_availability->f5_tts, "F5-TTS"});
+    m_features_availability.insert(
+        "kokoro-tts", QVariantList{py_availability->kokoro_tts, "Kokoro TTS"});
+    m_features_availability.insert(
+        "kokoro-tts-ja",
+        QVariantList{py_availability->kokoro_tts && py_availability->kokoro_ja,
+                     "Kokoro TTS " + tr("Japanese")});
+    m_features_availability.insert(
+        "kokoro-tts-zh",
+        QVariantList{py_availability->kokoro_tts && py_availability->kokoro_zh,
+                     "Kokoro TTS " + tr("Chinese")});
+#ifdef ARCH_X86_64
+    auto has_cuda = gpu_tools::has_cuda_runtime();
+    auto has_cudnn = gpu_tools::has_cudnn();
+    auto has_hip = gpu_tools::has_hip();
+
+    bool tts_coqui_cuda =
+        py_availability->coqui_tts && py_availability->torch_cuda;
+    bool tts_coqui_hip =
+        py_availability->coqui_tts && py_availability->torch_hip;
+    m_features_availability.insert(
+        "coqui-tts-cuda",
+        QVariantList{tts_coqui_cuda,
+                     "Coqui TTS CUDA " + tr("HW acceleration")});
+    m_features_availability.insert(
+        "coqui-tts-hip",
+        QVariantList{tts_coqui_hip, "Coqui TTS ROCm " + tr("HW acceleration")});
+    if (tts_coqui_cuda)
+        hw_feature_flags |=
+            settings::hw_feature_flags_t::hw_feature_tts_coqui_cuda;
+    if (tts_coqui_hip)
+        hw_feature_flags |=
+            settings::hw_feature_flags_t::hw_feature_tts_coqui_hip;
+
+    bool tts_whisperspeech_cuda =
+        py_availability->whisperspeech_tts && py_availability->torch_cuda;
+    bool tts_whisperspeech_hip =
+        py_availability->whisperspeech_tts && py_availability->torch_hip;
+    m_features_availability.insert(
+        "whisperspeech-tts-cuda",
+        QVariantList{tts_whisperspeech_cuda,
+                     "WhisperSpeech TTS CUDA " + tr("HW acceleration")});
+    m_features_availability.insert(
+        "whisperspeech-tts-hip",
+        QVariantList{tts_whisperspeech_hip,
+                     "WhisperSpeech TTS ROCm " + tr("HW acceleration")});
+    if (tts_whisperspeech_cuda)
+        hw_feature_flags |=
+            settings::hw_feature_flags_t::hw_feature_tts_whisperspeech_cuda;
+    if (tts_whisperspeech_hip)
+        hw_feature_flags |=
+            settings::hw_feature_flags_t::hw_feature_tts_whisperspeech_hip;
+
+    bool tts_parler_cuda =
+        py_availability->parler_tts && py_availability->torch_cuda;
+    bool tts_parler_hip =
+        py_availability->parler_tts && py_availability->torch_hip;
+    m_features_availability.insert(
+        "parler-tts-cuda",
+        QVariantList{tts_parler_cuda,
+                     "Parler-TTS CUDA " + tr("HW acceleration")});
+    m_features_availability.insert(
+        "parler-tts-hip",
+        QVariantList{tts_parler_hip,
+                     "Parler-TTS ROCm " + tr("HW acceleration")});
+    if (tts_parler_cuda)
+        hw_feature_flags |=
+            settings::hw_feature_flags_t::hw_feature_tts_parler_cuda;
+    if (tts_parler_hip)
+        hw_feature_flags |=
+            settings::hw_feature_flags_t::hw_feature_tts_parler_hip;
+
+    bool tts_f5_cuda = py_availability->f5_tts && py_availability->torch_cuda;
+    bool tts_f5_hip = py_availability->f5_tts && py_availability->torch_hip;
+    m_features_availability.insert(
+        "f5-tts-cuda",
+        QVariantList{tts_f5_cuda, "F5-TTS CUDA " + tr("HW acceleration")});
+    m_features_availability.insert(
+        "f5-tts-hip",
+        QVariantList{tts_f5_hip, "F5-TTS ROCm " + tr("HW acceleration")});
+    if (tts_f5_cuda)
+        hw_feature_flags |=
+            settings::hw_feature_flags_t::hw_feature_tts_f5_cuda;
+    if (tts_f5_hip)
+        hw_feature_flags |= settings::hw_feature_flags_t::hw_feature_tts_f5_hip;
+
+    bool tts_kokoro_cuda =
+        py_availability->kokoro_tts && py_availability->torch_cuda;
+    bool tts_kokoro_hip =
+        py_availability->kokoro_tts && py_availability->torch_hip;
+    m_features_availability.insert(
+        "kokoro-tts-cuda",
+        QVariantList{tts_kokoro_cuda,
+                     "Kokoro TTS CUDA " + tr("HW acceleration")});
+    m_features_availability.insert(
+        "kokoro-tts-hip",
+        QVariantList{tts_kokoro_hip,
+                     "Kokoro TTS ROCm " + tr("HW acceleration")});
+    if (tts_kokoro_cuda)
+        hw_feature_flags |=
+            settings::hw_feature_flags_t::hw_feature_tts_kokoro_cuda;
+    if (tts_kokoro_hip)
+        hw_feature_flags |=
+            settings::hw_feature_flags_t::hw_feature_tts_kokoro_hip;
+#endif  // ARCH_X86_64
+    m_features_availability.insert(
+        "coqui-tts-ja",
+        QVariantList{py_availability->coqui_tts && py_availability->mecab,
+                     "Coqui TTS " + tr("Japanese")});
+    m_features_availability.insert(
+        "coqui-tts-ko",
+        QVariantList{py_availability->coqui_tts && py_availability->uroman,
+                     "Coqui TTS " + tr("Korean")});
+    m_features_availability.insert(
+        "mimic3-tts", QVariantList{py_availability->mimic3_tts, "Mimic3 TTS"});
+    m_features_availability.insert(
+        "mimic3-tts-de",
+        QVariantList{py_availability->mimic3_tts && py_availability->gruut_de,
+                     "Mimic3 TTS " + tr("German")});
+    m_features_availability.insert(
+        "mimic3-tts-es",
+        QVariantList{py_availability->mimic3_tts && py_availability->gruut_es,
+                     "Mimic3 TTS " + tr("Spanish")});
+    m_features_availability.insert(
+        "mimic3-tts-fr",
+        QVariantList{py_availability->mimic3_tts && py_availability->gruut_fr,
+                     "Mimic3 TTS " + tr("French")});
+    m_features_availability.insert(
+        "mimic3-tts-it",
+        QVariantList{py_availability->mimic3_tts && py_availability->gruut_it,
+                     "Mimic3 TTS " + tr("Italian")});
+    m_features_availability.insert(
+        "mimic3-tts-ru",
+        QVariantList{py_availability->mimic3_tts && py_availability->gruut_ru,
+                     "Mimic3 TTS " + tr("Russian")});
+    m_features_availability.insert(
+        "mimic3-tts-sw",
+        QVariantList{py_availability->mimic3_tts && py_availability->gruut_sw,
+                     "Mimic3 TTS " + tr("Swahili")});
+    m_features_availability.insert(
+        "mimic3-tts-fa",
+        QVariantList{py_availability->mimic3_tts && py_availability->gruut_fa,
+                     "Mimic3 TTS " + tr("Persian")});
+    m_features_availability.insert(
+        "mimic3-tts-nl",
+        QVariantList{py_availability->mimic3_tts && py_availability->gruut_nl,
+                     "Mimic3 TTS " + tr("Dutch")});
+    m_features_availability.insert(
+        "faster-whisper-stt",
+        QVariantList{py_availability->faster_whisper, "FasterWhisper STT"});
+#ifdef ARCH_X86_64
+    bool stt_fasterwhisper_cuda = py_availability->faster_whisper &&
+                                  py_availability->ctranslate2_cuda &&
+                                  has_cuda && has_cudnn;
+    bool stt_fasterwhisper_hip = py_availability->faster_whisper &&
+                                 py_availability->ctranslate2_cuda && has_hip;
+    stt_fasterwhisper_hip = false;  // right now, ct2 doesn't support hip
+    m_features_availability.insert(
+        "faster-whisper-stt-cuda",
+        QVariantList{stt_fasterwhisper_cuda,
+                     "FasterWhisper STT CUDA " + tr("HW acceleration")});
+    // consider this: https://github.com/arlo-phoenix/CTranslate2-rocm
+    /*m_features_availability.insert(
+        "faster-whisper-stt-hip",
+        QVariantList{stt_fasterwhisper_hip, "FasterWhisper
+        STT ROCm " + tr("HW acceleration")});*/
+    if (stt_fasterwhisper_cuda) {
+        hw_feature_flags |=
+            settings::hw_feature_flags_t::hw_feature_stt_fasterwhisper_cuda;
+    }
+    if (stt_fasterwhisper_hip) {
+        hw_feature_flags |=
+            settings::hw_feature_flags_t::hw_feature_stt_fasterwhisper_hip;
+    }
+#endif  // ARCH_X86_64
+    m_features_availability.insert("punctuator",
+                                   QVariantList{py_availability->transformers,
+                                                tr("Punctuation restoration")});
+    m_features_availability.insert(
+        "diacritizer-he",
+        QVariantList{py_availability->transformers && py_availability->unikud,
+                     tr("Diacritics restoration for Hebrew")});
+
+    ma.tts_coqui = py_availability->coqui_tts;
+    ma.tts_mimic3 = py_availability->mimic3_tts;
+    ma.tts_mimic3_de = py_availability->mimic3_tts && py_availability->gruut_de;
+    ma.tts_mimic3_es = py_availability->mimic3_tts && py_availability->gruut_es;
+    ma.tts_mimic3_fr = py_availability->mimic3_tts && py_availability->gruut_fr;
+    ma.tts_mimic3_it = py_availability->mimic3_tts && py_availability->gruut_it;
+    ma.tts_mimic3_ru = py_availability->mimic3_tts && py_availability->gruut_ru;
+    ma.tts_mimic3_sw = py_availability->mimic3_tts && py_availability->gruut_sw;
+    ma.tts_mimic3_fa = py_availability->mimic3_tts && py_availability->gruut_fa;
+    ma.tts_mimic3_nl = py_availability->mimic3_tts && py_availability->gruut_nl;
+    ma.tts_whisperspeech = py_availability->whisperspeech_tts;
+    ma.tts_parler = py_availability->parler_tts;
+    ma.tts_f5 = py_availability->f5_tts;
+    ma.tts_kokoro = py_availability->kokoro_tts;
+    ma.tts_kokoro_ja = py_availability->kokoro_ja;
+    ma.tts_kokoro_zh = py_availability->kokoro_zh;
+    ma.stt_fasterwhisper = py_availability->faster_whisper;
+    ma.ttt_hftc = py_availability->transformers;
+    ma.ttt_unikud = py_availability->unikud;
+    ma.option_r = py_availability->uroman;
+#endif  // USE_PY
+
+    ma.stt_ds = ds_engine::available();
+    ma.stt_whisper = whisper_engine::available();
+    bool stt_whispercpp_vulkan = whisper_engine::has_vulkan();
+    ma.mnt_bergamot = mnt_engine::available();
+
+    m_features_availability.insert(
+        "coqui-stt", QVariantList{ma.stt_ds, "Coqui/DeepSpeech STT"});
+    m_features_availability.insert("translator",
+                                   QVariantList{ma.mnt_bergamot, "Translator"});
+    m_features_availability.insert(
+        "whispercpp-stt", QVariantList{ma.stt_whisper, "WhisperCpp STT "});
+    m_features_availability.insert(
+        "whispercpp-stt-vulkan",
+        QVariantList{stt_whispercpp_vulkan,
+                     "WhisperCpp STT Vulkan " + tr("HW acceleration")});
+    if (stt_whispercpp_vulkan) {
+        hw_feature_flags |=
+            settings::hw_feature_flags_t::HW_FEATURE(vulkan, whisper, stt);
+    }
+#ifdef ARCH_X86_64
+    bool stt_whispercpp_cuda = whisper_engine::has_cuda();
+    m_features_availability.insert(
+        "whispercpp-stt-cuda",
+        QVariantList{whisper_engine::has_cuda(),
+                     "WhisperCpp STT CUDA " + tr("HW acceleration")});
+    if (stt_whispercpp_cuda)
+        hw_feature_flags |=
+            settings::hw_feature_flags_t::HW_FEATURE(cuda, whisper, stt);
+
+    bool stt_whispercpp_hip = whisper_engine::has_hip();
+    m_features_availability.insert(
+        "whispercpp-stt-hip",
+        QVariantList{stt_whispercpp_hip,
+                     "WhisperCpp STT ROCm " + tr("HW acceleration")});
+    if (stt_whispercpp_hip)
+        hw_feature_flags |=
+            settings::hw_feature_flags_t::HW_FEATURE(hip, whisper, stt);
+
+    bool stt_whispercpp_openvino = whisper_engine::has_openvino();
+    m_features_availability.insert(
+        "whispercpp-stt-openvino",
+        QVariantList{stt_whispercpp_openvino,
+                     "WhisperCpp STT OpenVINO " + tr("HW acceleration")});
+    if (stt_whispercpp_openvino)
+        hw_feature_flags |=
+            settings::hw_feature_flags_t::HW_FEATURE(openvino, whisper, stt);
+
+    bool stt_whispercpp_opencl = whisper_engine::has_opencl();
+    m_features_availability.insert(
+        "whispercpp-stt-opencl",
+        QVariantList{stt_whispercpp_opencl,
+                     "WhisperCpp STT OpenCL " + tr("HW acceleration")});
+    if (stt_whispercpp_opencl)
+        hw_feature_flags |=
+            settings::hw_feature_flags_t::HW_FEATURE(opencl, whisper, stt);
+#endif  // ARCH_X86_64
+    ma.tts_rhvoice = rhvoice_engine::available();
+    m_features_availability.insert("rhvoice-tts",
+                                   QVariantList{ma.tts_rhvoice, "RHVoice TTS"});
+
+    ma.stt_vosk = vosk_engine::available();
+    m_features_availability.insert("vosk-stt",
+                                   QVariantList{ma.stt_vosk, "Vosk STT"});
+
+    /* model types always enabled */
+    ma.stt_april = true;
+    ma.tts_espeak = true;
+    ma.tts_piper = true;
+    ma.tts_sam = true;
+    ma.ttt_tashkeel = true;
+
+    models_manager::instance()->update_models_using_availability(ma);
+
+    settings::instance()->scan_hw_devices(hw_feature_flags);
+
+#define X(_name, _2, _gpu, ...) X##_gpu(_name)
+#define Xfalse(name)
+#define Xtrue(name)                 \
+    m_features_availability.insert( \
+        #name "-gpu-devices",       \
+        variant_list_from_list(settings::instance()->name##_gpu_devices()));
+    STT_ENGINE_TABLE
+    TTS_ENGINE_TABLE
+#undef X
+#undef Xtrue
+#undef Xfalse
+
+    m_features_availability.insert(
+        "addon-flags", QVariantList{} << settings::instance()->addon_flags());
+    m_features_availability.insert(
+        "system-flags", QVariantList{} << settings::instance()->system_flags());
+    m_features_availability.insert(
+        "error-flags", QVariantList{} << settings::instance()->error_flags());
+#ifdef USE_PY
+    m_features_availability.insert(
+        "py-version", QVariantList{} << QString::fromStdString(fmt::format(
+                          "{}.{}.{}", py_availability->py_version.major,
+                          py_availability->py_version.minor,
+                          py_availability->py_version.micro)));
+#endif
+    refresh_status();
+
+    emit features_availability_updated();
 
     return m_features_availability;
 }

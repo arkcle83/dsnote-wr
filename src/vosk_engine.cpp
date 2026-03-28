@@ -458,12 +458,13 @@ void vosk_engine::decode_speech(const vosk_buf_t& buf, bool eof) {
         eof) {
         auto segments = segments_from_json(
             m_vosk_api.vosk_recognizer_final_result(m_vosk_recognizer));
-
+#ifdef USE_PY
         if (m_punctuator) {
             segments.first = m_punctuator->process(segments.first);
             text_tools::restore_punctuation_in_segments(segments.first,
                                                         segments.second);
         }
+#endif
 
         if (m_config.text_format == text_format_t::subrip) {
             text_tools::break_segments_to_multiline(
@@ -494,9 +495,9 @@ void vosk_engine::decode_speech(const vosk_buf_t& buf, bool eof) {
 #else
         LOGD("speech decoded");
 #endif
-
+#ifdef USE_PY
         if (m_punctuator) result = m_punctuator->process(result);
-
+#endif
         if (!m_intermediate_text || m_intermediate_text != result)
             set_intermediate_text(result, m_config.lang);
     }

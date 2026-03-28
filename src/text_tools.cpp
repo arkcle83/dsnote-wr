@@ -1,4 +1,4 @@
-/* Copyright (C) 2023-2025 Michal Kosciesza <michal@mkiol.net>
+/* Copyright (C) 2023-2026 Michal Kosciesza <michal@mkiol.net>
  *
  * This Source Code Form is subject to the terms of the Mozilla Public
  * License, v. 2.0. If a copy of the MPL was not distributed with this
@@ -27,7 +27,9 @@
 
 #include "astrunc/astrunc.h"
 #include "logger.hpp"
+#ifdef USE_PY
 #include "py_executor.hpp"
+#endif
 
 namespace text_tools {
 std::ostream& operator<<(std::ostream& os,
@@ -1241,6 +1243,7 @@ void break_segments_to_multiline(unsigned int min_line_size,
 
 void processor::hebrew_diacritize(std::string& text,
                                   const std::string& model_path) {
+#ifdef USE_PY
     using namespace pybind11::literals;
 
     auto task = py_executor::instance()->execute(
@@ -1265,6 +1268,12 @@ void processor::hebrew_diacritize(std::string& text,
         });
 
     if (task) text.assign(std::any_cast<std::string>(task->get()));
+#else
+    (void)text;
+    (void)model_path;
+
+    LOGW("hebrew diacritize is unavailable as py is off");
+#endif
 }
 
 void processor::arabic_diacritize(std::string& text,
@@ -1336,6 +1345,7 @@ std::string processor::preprocess(const std::string& text,
 processor::processor(int device) : m_device{device} {}
 
 processor::~processor() {
+#ifdef USE_PY
     auto task = py_executor::instance()->execute([&]() {
         try {
             m_unikud.reset();
@@ -1346,6 +1356,7 @@ processor::~processor() {
     });
 
     if (task) task->get();
+#endif
 }
 
 }  // namespace text_tools

@@ -130,22 +130,13 @@ QDebug operator<<(QDebug d, models_manager::feature_flags flags) {
     if (flags & models_manager::high_quality) d << "high-quality, ";
     if (flags & models_manager::medium_quality) d << "medium-quality, ";
     if (flags & models_manager::low_quality) d << "low-quality, ";
-    if (flags & models_manager::engine_stt_ds) d << "engine-stt-ds, ";
-    if (flags & models_manager::engine_stt_vosk) d << "engine-stt-vosk, ";
-    if (flags & models_manager::engine_stt_whisper) d << "engine-stt-whisper, ";
-    if (flags & models_manager::engine_stt_fasterwhisper)
-        d << "engine-stt-fasterwhisper, ";
-    if (flags & models_manager::engine_stt_april) d << "engine-stt-april, ";
-    if (flags & models_manager::engine_tts_espeak) d << "engine-tts-espeak, ";
-    if (flags & models_manager::engine_tts_piper) d << "engine-tts-piper, ";
-    if (flags & models_manager::engine_tts_rhvoice) d << "engine-tts-rhvoice, ";
-    if (flags & models_manager::engine_tts_coqui) d << "engine-tts-coqui, ";
-    if (flags & models_manager::engine_tts_mimic3) d << "engine-tts-mimic3, ";
-    if (flags & models_manager::engine_tts_whisperspeech)
-        d << "engine-tts-whisperspeech, ";
-    if (flags & models_manager::engine_tts_parler) d << "engine-tts-parler, ";
-    if (flags & models_manager::engine_tts_f5) d << "engine-tts-f5, ";
-    if (flags & models_manager::engine_tts_kokoro) d << "engine-tts-kokoro, ";
+#define X(_name, _role, ...)                                  \
+    if (flags & models_manager::ENGINE_FEATURE(_name, _role)) \
+        d << ENGINE_FEATURE_STR(_name, _role) ", ";
+    STT_ENGINE_TABLE
+    TTS_ENGINE_TABLE
+    MNT_ENGINE_TABLE
+#undef X
     if (flags & models_manager::engine_other) d << "engine-other, ";
     if (flags & models_manager::hw_openvino) d << "hw-openvino, ";
     if (flags & models_manager::stt_intermediate_results)
@@ -158,63 +149,12 @@ QDebug operator<<(QDebug d, models_manager::feature_flags flags) {
 
 QDebug operator<<(QDebug d, models_manager::model_engine_t engine) {
     switch (engine) {
-        case models_manager::model_engine_t::stt_ds:
-            d << "stt-ds";
-            break;
-        case models_manager::model_engine_t::stt_vosk:
-            d << "stt-vosk";
-            break;
-        case models_manager::model_engine_t::stt_whisper:
-            d << "stt-whisper";
-            break;
-        case models_manager::model_engine_t::stt_fasterwhisper:
-            d << "stt-faster-whisper";
-            break;
-        case models_manager::model_engine_t::stt_april:
-            d << "stt-april";
-            break;
-        case models_manager::model_engine_t::ttt_hftc:
-            d << "ttt-hftc";
-            break;
-        case models_manager::model_engine_t::ttt_tashkeel:
-            d << "ttt-tashkeel";
-            break;
-        case models_manager::model_engine_t::ttt_unikud:
-            d << "ttt-unikud";
-            break;
-        case models_manager::model_engine_t::tts_coqui:
-            d << "tts-coqui";
-            break;
-        case models_manager::model_engine_t::tts_piper:
-            d << "tts-piper";
-            break;
-        case models_manager::model_engine_t::tts_espeak:
-            d << "tts-espeak";
-            break;
-        case models_manager::model_engine_t::tts_rhvoice:
-            d << "tts-rhvoice";
-            break;
-        case models_manager::model_engine_t::tts_mimic3:
-            d << "tts-mimic3";
-            break;
-        case models_manager::model_engine_t::tts_whisperspeech:
-            d << "tts-whisperspeech";
-            break;
-        case models_manager::model_engine_t::tts_sam:
-            d << "tts-sam";
-            break;
-        case models_manager::model_engine_t::tts_parler:
-            d << "tts-parler";
-            break;
-        case models_manager::model_engine_t::tts_f5:
-            d << "tts-f5";
-            break;
-        case models_manager::model_engine_t::tts_kokoro:
-            d << "tts-kokoro";
-            break;
-        case models_manager::model_engine_t::mnt_bergamot:
-            d << "mnt-bergamot";
-            break;
+#define X(_name, _role, ...)                                        \
+    case models_manager::model_engine_t::ENGINE_TYPE(_name, _role): \
+        d << ENGINE_STR(_name, _role);                              \
+        break;
+        ENGINE_TABLE
+#undef X
     }
 
     return d;
@@ -244,29 +184,34 @@ QDebug operator<<(QDebug d, models_manager::sup_model_role_t role) {
 
 QDebug operator<<(QDebug d,
                   models_manager::models_availability_t models_availability) {
-    if (models_availability.tts_coqui) d << "tts_coqui,";
-    if (models_availability.tts_mimic3) d << "tts_mimic3,";
-    if (models_availability.tts_mimic3_de) d << "tts_mimic3_de,";
-    if (models_availability.tts_mimic3_es) d << "tts_mimic3_es,";
-    if (models_availability.tts_mimic3_fr) d << "tts_mimic3_fr,";
-    if (models_availability.tts_mimic3_it) d << "tts_mimic3_it,";
-    if (models_availability.tts_mimic3_ru) d << "tts_mimic3_ru,";
-    if (models_availability.tts_mimic3_sw) d << "tts_mimic3_sw,";
-    if (models_availability.tts_mimic3_fa) d << "tts_mimic3_fa,";
-    if (models_availability.tts_mimic3_nl) d << "tts_mimic3_nl,";
-    if (models_availability.tts_rhvoice) d << "tts_rhvoice,";
-    if (models_availability.tts_whisperspeech) d << "tts_whisperspeech,";
-    if (models_availability.tts_parler) d << "tts_parler,";
-    if (models_availability.tts_f5) d << "tts_f5,";
-    if (models_availability.tts_kokoro) d << "tts_kokoro,";
-    if (models_availability.tts_kokoro_ja) d << "tts_kokoro_ja,";
-    if (models_availability.tts_kokoro_zh) d << "tts_kokoro_zh,";
-    if (models_availability.stt_fasterwhisper) d << "stt_fasterwhisper,";
-    if (models_availability.stt_ds) d << "stt_ds,";
-    if (models_availability.stt_vosk) d << "stt_vosk,";
-    if (models_availability.stt_whispercpp) d << "stt_whispercpp,";
-    if (models_availability.mnt_bergamot) d << "mnt_bergamot,";
-    if (models_availability.ttt_hftc) d << "ttt_hftc";
+#define X(_name, _role, ...)                           \
+    if (models_availability.ENGINE_TYPE(_name, _role)) \
+        d << ENGINE_STR(_name, _role) ",";
+    ENGINE_TABLE
+#undef X
+
+    if (models_availability.ENGINE_TYPE_LANG(mimic3, tts, de))
+        d << "tts_mimic3_de,";
+    if (models_availability.ENGINE_TYPE_LANG(mimic3, tts, es))
+        d << "tts_mimic3_es,";
+    if (models_availability.ENGINE_TYPE_LANG(mimic3, tts, fr))
+        d << "tts_mimic3_fr,";
+    if (models_availability.ENGINE_TYPE_LANG(mimic3, tts, it))
+        d << "tts_mimic3_it,";
+    if (models_availability.ENGINE_TYPE_LANG(mimic3, tts, ru))
+        d << "tts_mimic3_ru,";
+    if (models_availability.ENGINE_TYPE_LANG(mimic3, tts, sw))
+        d << "tts_mimic3_sw,";
+    if (models_availability.ENGINE_TYPE_LANG(mimic3, tts, fa))
+        d << "tts_mimic3_fa,";
+    if (models_availability.ENGINE_TYPE_LANG(mimic3, tts, nl))
+        d << "tts_mimic3_nl,";
+
+    if (models_availability.ENGINE_TYPE_LANG(kokoro, tts, ja))
+        d << "tts_kokoro_ja,";
+    if (models_availability.ENGINE_TYPE_LANG(kokoro, tts, zh))
+        d << "tts_kokoro_zh,";
+
     if (models_availability.option_r) d << "option_r,";
 
     return d;
@@ -1127,7 +1072,7 @@ void models_manager::remove_downloaded_files_on_error(
 }
 
 void models_manager::handle_download_finished() {
-    auto reply = qobject_cast<QNetworkReply*>(sender());
+    auto* reply = qobject_cast<QNetworkReply*>(sender());
 
     delete static_cast<std::ofstream*>(
         reply->property("out_file").value<void*>());
@@ -1229,7 +1174,7 @@ void models_manager::handle_download_finished() {
 
 void models_manager::handle_download_progress(qint64 received,
                                               qint64 real_total) {
-    auto* reply = qobject_cast<const QNetworkReply*>(sender());
+    const auto* reply = qobject_cast<const QNetworkReply*>(sender());
 
     if (reply->isFinished()) return;
 
@@ -1500,13 +1445,12 @@ auto models_manager::extract_packs(const QJsonArray& packs_jarray) {
 
         pack_t pack;
 
-        try {
-            pack.engine =
-                engine_from_name(obj.value(QLatin1String{"engine"}).toString());
-        } catch (const std::runtime_error& e) {
-            qWarning() << e.what();
+        auto engine_opt =
+            engine_from_name(obj.value(QLatin1String{"engine"}).toString());
+        if (!engine_opt) {
             continue;
         }
+        pack.engine = std::move(engine_opt.value());
 
         pack.lang_id = obj.value(QLatin1String{"lang_id"}).toString();
         if (pack.lang_id.isEmpty()) {
@@ -1577,61 +1521,35 @@ models_manager::langs_of_role_t models_manager::make_langs_of_role(
 }
 
 bool models_manager::is_modelless_engine(model_engine_t engine) {
-    switch (engine) {
-        case model_engine_t::tts_espeak:
-        case model_engine_t::tts_sam:
-            return true;
-        case model_engine_t::stt_ds:
-        case model_engine_t::stt_vosk:
-        case model_engine_t::stt_whisper:
-        case model_engine_t::stt_fasterwhisper:
-        case model_engine_t::stt_april:
-        case model_engine_t::ttt_hftc:
-        case model_engine_t::ttt_tashkeel:
-        case model_engine_t::ttt_unikud:
-        case model_engine_t::tts_coqui:
-        case model_engine_t::tts_piper:
-        case model_engine_t::tts_rhvoice:
-        case model_engine_t::tts_mimic3:
-        case model_engine_t::tts_whisperspeech:
-        case model_engine_t::tts_parler:
-        case model_engine_t::tts_f5:
-        case model_engine_t::tts_kokoro:
-        case model_engine_t::mnt_bergamot:
-            return false;
-    }
-
-    throw std::runtime_error("unknown engine");
+#define X(_name, _role, _3, _4, _ml, ...) X##_ml(_name, _role)
+#define Xtrue(_name, _role) \
+    if (engine == model_engine_t::ENGINE_TYPE(_name, _role)) return true;
+#define Xfalse(_name, _role)
+    ENGINE_TABLE
+#undef X
+#undef Xtrue
+#undef Xfalse
+    return false;
 }
 
 bool models_manager::is_ignore_on_sfos(model_engine_t engine,
                                        const QString& model_id) {
-    switch (engine) {
-        case model_engine_t::ttt_hftc:
-        case model_engine_t::ttt_tashkeel:
-        case model_engine_t::ttt_unikud:
-        case model_engine_t::stt_fasterwhisper:
-        case model_engine_t::tts_mimic3:
-        case model_engine_t::tts_whisperspeech:
-        case model_engine_t::tts_parler:
-        case model_engine_t::tts_f5:
-        case model_engine_t::tts_kokoro:
-        case model_engine_t::tts_coqui:
-            return true;
-        case model_engine_t::stt_april:
-        case model_engine_t::tts_piper:
-        case model_engine_t::tts_rhvoice:
-        case model_engine_t::mnt_bergamot:
-        case model_engine_t::tts_espeak:
-        case model_engine_t::tts_sam:
-        case model_engine_t::stt_ds:
-            return false;
-        case model_engine_t::stt_vosk:
-        case model_engine_t::stt_whisper:
-            return model_id.contains("large") || model_id.contains("medium");
+#define X(_name, _role, _3, _4, _5, _igsfos, ...) X##_igsfos(_name, _role)
+#define Xtrue(_name, _role) \
+    if (engine == model_engine_t::ENGINE_TYPE(_name, _role)) return true;
+#define Xfalse(_name, _role)
+    ENGINE_TABLE
+#undef X
+#undef Xtrue
+#undef Xfalse
+
+    // models too large for sfos dev
+    if (engine == model_engine_t::stt_vosk ||
+        engine == model_engine_t::stt_whisper) {
+        return model_id.contains("large") || model_id.contains("medium");
     }
 
-    throw std::runtime_error("unknown engine");
+    return false;
 }
 
 bool models_manager::model_checksum_ok(const priv_model_t& model) {
@@ -1703,64 +1621,24 @@ bool models_manager::sup_models_exist(const std::vector<sup_model_t>& models) {
 
 models_manager::model_role_t models_manager::role_of_engine(
     model_engine_t engine) {
-    switch (engine) {
-        case model_engine_t::stt_ds:
-        case model_engine_t::stt_vosk:
-        case model_engine_t::stt_whisper:
-        case model_engine_t::stt_fasterwhisper:
-        case model_engine_t::stt_april:
-            return model_role_t::stt;
-        case model_engine_t::ttt_hftc:
-        case model_engine_t::ttt_tashkeel:
-        case model_engine_t::ttt_unikud:
-            return model_role_t::ttt;
-        case model_engine_t::tts_coqui:
-        case model_engine_t::tts_piper:
-        case model_engine_t::tts_espeak:
-        case model_engine_t::tts_rhvoice:
-        case model_engine_t::tts_mimic3:
-        case model_engine_t::tts_whisperspeech:
-        case model_engine_t::tts_sam:
-        case model_engine_t::tts_parler:
-        case model_engine_t::tts_f5:
-        case model_engine_t::tts_kokoro:
-            return model_role_t::tts;
-        case model_engine_t::mnt_bergamot:
-            return model_role_t::mnt;
-    }
+#define X(_name, _role, ...) \
+    if (engine == model_engine_t::ENGINE_TYPE(_name, _role)) return model_role_t::_role;
+    ENGINE_TABLE
+#undef X
 
     throw std::runtime_error("unknown engine");
 }
 
-models_manager::model_engine_t models_manager::engine_from_name(
+std::optional<models_manager::model_engine_t> models_manager::engine_from_name(
     const QString& name) {
-    if (name == QStringLiteral("stt_ds")) return model_engine_t::stt_ds;
-    if (name == QStringLiteral("stt_vosk")) return model_engine_t::stt_vosk;
-    if (name == QStringLiteral("stt_whisper"))
-        return model_engine_t::stt_whisper;
-    if (name == QStringLiteral("stt_fasterwhisper"))
-        return model_engine_t::stt_fasterwhisper;
-    if (name == QStringLiteral("stt_april")) return model_engine_t::stt_april;
-    if (name == QStringLiteral("ttt_hftc")) return model_engine_t::ttt_hftc;
-    if (name == QStringLiteral("ttt_tashkeel"))
-        return model_engine_t::ttt_tashkeel;
-    if (name == QStringLiteral("ttt_unikud")) return model_engine_t::ttt_unikud;
-    if (name == QStringLiteral("tts_coqui")) return model_engine_t::tts_coqui;
-    if (name == QStringLiteral("tts_piper")) return model_engine_t::tts_piper;
-    if (name == QStringLiteral("tts_espeak")) return model_engine_t::tts_espeak;
-    if (name == QStringLiteral("tts_rhvoice"))
-        return model_engine_t::tts_rhvoice;
-    if (name == QStringLiteral("tts_mimic3")) return model_engine_t::tts_mimic3;
-    if (name == QStringLiteral("tts_whisperspeech"))
-        return model_engine_t::tts_whisperspeech;
-    if (name == QStringLiteral("tts_sam")) return model_engine_t::tts_sam;
-    if (name == QStringLiteral("tts_parler")) return model_engine_t::tts_parler;
-    if (name == QStringLiteral("tts_f5")) return model_engine_t::tts_f5;
-    if (name == QStringLiteral("tts_kokoro")) return model_engine_t::tts_kokoro;
-    if (name == QStringLiteral("mnt_bergamot"))
-        return model_engine_t::mnt_bergamot;
+#define X(_name, _role, ...)                       \
+    if (name == QStringLiteral(#_role "_" #_name)) \
+        return model_engine_t::ENGINE_TYPE(_name, _role);
+    ENGINE_TABLE
+#undef X
 
-    throw std::runtime_error("unknown engine: " + name.toStdString());
+    qWarning() << "unknown engine:" << name;
+    return std::nullopt;
 }
 
 models_manager::feature_flags models_manager::feature_from_name(
@@ -1884,42 +1762,21 @@ models_manager::feature_flags models_manager::add_new_feature(
                 return existing_features;
             }
             break;
-        case feature_flags::engine_stt_ds:
-        case feature_flags::engine_stt_vosk:
-        case feature_flags::engine_stt_whisper:
-        case feature_flags::engine_stt_fasterwhisper:
-        case feature_flags::engine_stt_april:
-        case feature_flags::engine_tts_espeak:
-        case feature_flags::engine_tts_piper:
-        case feature_flags::engine_tts_rhvoice:
-        case feature_flags::engine_tts_coqui:
-        case feature_flags::engine_tts_mimic3:
-        case feature_flags::engine_tts_whisperspeech:
-        case feature_flags::engine_tts_sam:
-        case feature_flags::engine_tts_parler:
-        case feature_flags::engine_tts_f5:
-        case feature_flags::engine_tts_kokoro:
-        case feature_flags::engine_mnt:
+            // clang-format off
+#define X(_name, _role, ...) case feature_flags::ENGINE_FEATURE(_name, _role):
+        STT_ENGINE_TABLE TTS_ENGINE_TABLE MNT_ENGINE_TABLE
+#undef X
         case feature_flags::engine_other:
-            if (existing_features & feature_flags::engine_stt_ds ||
-                existing_features & feature_flags::engine_stt_vosk ||
-                existing_features & feature_flags::engine_stt_whisper ||
-                existing_features & feature_flags::engine_stt_fasterwhisper ||
-                existing_features & feature_flags::engine_stt_april ||
-                existing_features & feature_flags::engine_tts_espeak ||
-                existing_features & feature_flags::engine_tts_piper ||
-                existing_features & feature_flags::engine_tts_rhvoice ||
-                existing_features & feature_flags::engine_tts_coqui ||
-                existing_features & feature_flags::engine_tts_mimic3 ||
-                existing_features & feature_flags::engine_tts_whisperspeech ||
-                existing_features & feature_flags::engine_tts_sam ||
-                existing_features & feature_flags::engine_tts_parler ||
-                existing_features & feature_flags::engine_tts_f5 ||
-                existing_features & feature_flags::engine_mnt ||
-                existing_features & feature_flags::engine_other) {
+            if (false
+#define X(_name, _role, ...) \
+    || existing_features & feature_flags::ENGINE_FEATURE(_name, _role)
+                STT_ENGINE_TABLE TTS_ENGINE_TABLE MNT_ENGINE_TABLE
+#undef X
+            ) {
                 return existing_features;
             }
             break;
+            // clang-format on
         case feature_flags::no_flags:
         case feature_flags::stt_intermediate_results:
         case feature_flags::stt_punctuation:
@@ -1935,46 +1792,20 @@ models_manager::feature_flags models_manager::add_new_feature(
 models_manager::feature_flags models_manager::add_implicit_feature_flags(
     const QString& model_id, model_engine_t engine, int score,
     feature_flags existing_features) {
+    /* additional features */
+
     switch (engine) {
         case model_engine_t::stt_ds:
-            existing_features =
-                add_new_feature(existing_features,
-                                feature_flags::engine_stt_ds) |
-                add_new_feature(existing_features,
-                                feature_flags::fast_processing) |
-                add_new_feature(existing_features, feature_flags::low_quality) |
-                add_new_feature(existing_features,
-                                feature_flags::stt_intermediate_results);
-            break;
         case model_engine_t::stt_vosk:
-            existing_features =
-                add_new_feature(existing_features,
-                                feature_flags::engine_stt_vosk) |
-                add_new_feature(existing_features,
-                                feature_flags::fast_processing) |
-                add_new_feature(existing_features,
-                                feature_flags::medium_quality) |
-                add_new_feature(existing_features,
-                                feature_flags::stt_intermediate_results);
-            break;
         case model_engine_t::stt_april:
             existing_features =
-                add_new_feature(existing_features,
-                                feature_flags::engine_stt_april) |
-                add_new_feature(existing_features,
-                                feature_flags::medium_processing) |
-                add_new_feature(existing_features,
-                                feature_flags::medium_quality) |
                 add_new_feature(existing_features,
                                 feature_flags::stt_intermediate_results);
             break;
         case model_engine_t::stt_whisper:
+#ifdef USE_PY
         case model_engine_t::stt_fasterwhisper:
-            existing_features =
-                add_new_feature(existing_features,
-                                engine == model_engine_t::stt_whisper
-                                    ? feature_flags::engine_stt_whisper
-                                    : feature_flags::engine_stt_fasterwhisper);
+#endif
             if (model_id.contains("tiny")) {
                 existing_features =
                     add_new_feature(existing_features,
@@ -1987,59 +1818,11 @@ models_manager::feature_flags models_manager::add_implicit_feature_flags(
                                     feature_flags::medium_processing) |
                     add_new_feature(existing_features,
                                     feature_flags::low_quality);
-            } else {
-                existing_features =
-                    add_new_feature(existing_features,
-                                    feature_flags::slow_processing) |
-                    add_new_feature(existing_features,
-                                    feature_flags::high_quality);
             }
             existing_features = add_new_feature(existing_features,
                                                 feature_flags::stt_punctuation);
             break;
-        case model_engine_t::tts_coqui:
-            existing_features =
-                add_new_feature(existing_features,
-                                feature_flags::engine_tts_coqui) |
-                add_new_feature(existing_features,
-                                feature_flags::slow_processing);
-            if (score == 0)
-                existing_features = add_new_feature(existing_features,
-                                                    feature_flags::low_quality);
-            else if (model_id.contains("fairseq"))
-                existing_features = add_new_feature(
-                    existing_features, feature_flags::medium_quality);
-            else
-                existing_features = add_new_feature(
-                    existing_features, feature_flags::high_quality);
-            break;
-        case model_engine_t::tts_whisperspeech:
-            existing_features =
-                add_new_feature(existing_features,
-                                feature_flags::engine_tts_whisperspeech) |
-                add_new_feature(existing_features,
-                                feature_flags::slow_processing);
-            existing_features = add_new_feature(
-                existing_features, score == 0 ? feature_flags::low_quality
-                                              : feature_flags::high_quality);
-            break;
-        case model_engine_t::tts_mimic3:
-            existing_features =
-                add_new_feature(existing_features,
-                                feature_flags::engine_tts_mimic3) |
-                add_new_feature(existing_features,
-                                feature_flags::medium_processing) |
-                add_new_feature(existing_features,
-                                feature_flags::medium_quality);
-            break;
         case model_engine_t::tts_piper:
-            existing_features =
-                add_new_feature(existing_features,
-                                feature_flags::engine_tts_piper) |
-                add_new_feature(existing_features,
-                                (score == 0 ? feature_flags::low_quality
-                                            : feature_flags::high_quality));
-
             if (model_id.contains("high") || model_id.contains("medium"))
                 existing_features = add_new_feature(
                     existing_features, feature_flags::medium_processing);
@@ -2048,95 +1831,57 @@ models_manager::feature_flags models_manager::add_implicit_feature_flags(
                     existing_features, feature_flags::fast_processing);
             break;
         case model_engine_t::tts_espeak:
-            existing_features =
-                add_new_feature(existing_features,
-                                feature_flags::engine_tts_espeak) |
-                add_new_feature(existing_features,
-                                feature_flags::fast_processing) |
-                add_new_feature(existing_features, feature_flags::low_quality);
-            break;
         case model_engine_t::tts_sam:
-            existing_features =
-                add_new_feature(existing_features,
-                                feature_flags::engine_tts_sam) |
-                add_new_feature(existing_features,
-                                feature_flags::fast_processing) |
-                add_new_feature(existing_features, feature_flags::low_quality);
-            break;
-        case model_engine_t::tts_parler:
-            existing_features =
-                add_new_feature(existing_features,
-                                feature_flags::engine_tts_parler) |
-                add_new_feature(existing_features,
-                                feature_flags::slow_processing);
-            existing_features = add_new_feature(
-                existing_features, score == 0 ? feature_flags::low_quality
-                                              : feature_flags::high_quality);
-            break;
-        case model_engine_t::tts_f5:
-            existing_features = add_new_feature(existing_features,
-                                                feature_flags::engine_tts_f5) |
-                                add_new_feature(existing_features,
-                                                feature_flags::slow_processing);
-            existing_features = add_new_feature(
-                existing_features, score == 0 ? feature_flags::low_quality
-                                              : feature_flags::high_quality);
-            break;
-        case model_engine_t::tts_kokoro:
-            existing_features =
-                add_new_feature(existing_features,
-                                feature_flags::engine_tts_kokoro) |
-                add_new_feature(existing_features,
-                                feature_flags::medium_processing);
-            existing_features = add_new_feature(
-                existing_features, score == 0 ? feature_flags::low_quality
-                                              : feature_flags::high_quality);
-            break;
         case model_engine_t::tts_rhvoice:
-            existing_features =
-                add_new_feature(existing_features,
-                                feature_flags::engine_tts_rhvoice) |
-                add_new_feature(existing_features,
-                                feature_flags::fast_processing) |
-                add_new_feature(existing_features, feature_flags::low_quality);
-            break;
         case model_engine_t::mnt_bergamot:
-            existing_features =
-                add_new_feature(existing_features, feature_flags::engine_mnt) |
-                add_new_feature(existing_features,
-                                feature_flags::fast_processing) |
-                add_new_feature(existing_features,
-                                score == 0 ? feature_flags::low_quality
-                                           : feature_flags::medium_quality);
-            break;
-        case model_engine_t::ttt_hftc:
-            existing_features =
-                add_new_feature(existing_features,
-                                feature_flags::engine_other) |
-                add_new_feature(existing_features,
-                                feature_flags::slow_processing) |
-                add_new_feature(existing_features,
-                                feature_flags::medium_quality);
-            break;
         case model_engine_t::ttt_tashkeel:
-            existing_features =
-                add_new_feature(existing_features,
-                                feature_flags::engine_other) |
-                add_new_feature(existing_features,
-                                feature_flags::fast_processing) |
-                add_new_feature(existing_features,
-                                feature_flags::medium_quality);
             break;
+#ifdef USE_PY
+        case model_engine_t::tts_coqui:
+            if (model_id.contains("fairseq")) {
+                existing_features = add_new_feature(
+                    existing_features, feature_flags::medium_quality);
+            }
+            break;
+        case model_engine_t::tts_whisperspeech:
+        case model_engine_t::tts_mimic3:
+        case model_engine_t::tts_parler:
+        case model_engine_t::tts_f5:
+        case model_engine_t::tts_kokoro:
+        case model_engine_t::ttt_hftc:
         case model_engine_t::ttt_unikud:
-            existing_features =
-                add_new_feature(existing_features,
-                                feature_flags::engine_other) |
-                add_new_feature(existing_features,
-                                feature_flags::slow_processing) |
-                add_new_feature(existing_features,
-                                feature_flags::medium_quality);
             break;
+#endif
     }
+
+    /* general features */
+
+    // clang-format off
+    switch (engine) {
+#define X(_name, _role, _3, _4, _5, _6, _7, _ffspeed, _ffquality, ...) \
+        case model_engine_t::ENGINE_TYPE(_name, _role): \
+            existing_features = \
+                add_new_feature(existing_features, \
+                                feature_flags::ENGINE_FEATURE(_name, _role)) | \
+                add_new_feature(existing_features, \
+                                feature_flags::_ffspeed) | \
+                add_new_feature(existing_features, score == 0 ? feature_flags::low_quality : feature_flags::_ffquality); \
+                break;
+        STT_ENGINE_TABLE TTS_ENGINE_TABLE MNT_ENGINE_TABLE
+#undef X
+#define X(_name, _role, _3, _4, _5, _6, _7, _ffspeed, _ffquality, ...) \
+        case model_engine_t::ENGINE_TYPE(_name, _role): \
+            existing_features = \
+                add_new_feature(existing_features, \
+                                feature_flags::engine_other) | \
+                add_new_feature(existing_features, \
+                                feature_flags::_ffspeed) | \
+                add_new_feature(existing_features, feature_flags::_ffquality); \
+            break;
+        TTT_ENGINE_TABLE
+#undef X
+    }
+    // clang-format on
 
     return existing_features;
 }
@@ -2204,8 +1949,12 @@ auto models_manager::extract_models(
         auto model_alias_of =
             obj.value(QLatin1String{"model_alias_of"}).toString();
         if (model_alias_of.isEmpty()) {
-            engine =
+            auto engine_opt =
                 engine_from_name(obj.value(QLatin1String{"engine"}).toString());
+            if (!engine_opt) {
+                continue;
+            }
+            engine = std::move(engine_opt.value());
 
             if (speaker.isEmpty() && engine == model_engine_t::tts_espeak)
                 speaker = lang_id;
@@ -2272,8 +2021,14 @@ auto models_manager::extract_models(
                             it->second.lang_id == lang_id) {
                             return model_alias_of;
                         }
-                        if (engine != model_engine_t::stt_whisper &&
-                            engine != model_engine_t::stt_fasterwhisper) {
+                        bool dont_make_implicit_pack =
+                            engine != model_engine_t::stt_whisper;
+#ifdef USE_PY
+                        dont_make_implicit_pack =
+                            dont_make_implicit_pack &&
+                            (engine != model_engine_t::stt_fasterwhisper);
+#endif
+                        if (dont_make_implicit_pack) {
                             return {};
                         }
                         auto l = model_id.split('_');
@@ -2343,88 +2098,34 @@ auto models_manager::extract_models(
 
 #ifdef ARCH_ARM_32
         if (!has_neon_fp && engine == model_engine_t::stt_whisper) {
-            qDebug() << "ignoring whisper model because cpu does not support "
-                        "neon fd:"
-                     << model_id;
+            // ignoring whisper model because cpu does not support neon fd
             continue;
         }
 #endif
 #if defined ARCH_ARM_32 || defined ARCH_ARM_64
         if (engine == model_engine_t::stt_vosk && model_id.contains("large")) {
-            qDebug() << "ignoring vosk large model on arm:" << model_id;
+            // ignoring vosk large model on arm
             continue;
         }
 #endif
 #ifdef USE_SFOS
         if (is_ignore_on_sfos(engine, model_id)) {
-            qDebug() << "ignoring model on sfos:" << model_id;
+            // ignoring model on sfos
             continue;
         }
 #endif
         if (models_availability) {
-            if (!models_availability->ttt_hftc &&
-                engine == model_engine_t::ttt_hftc) {
-                qDebug() << "ignoring hftc model:" << model_id;
-                continue;
-            }
-            if (!models_availability->tts_coqui &&
-                engine == model_engine_t::tts_coqui) {
-                qDebug() << "ignoring coqui model:" << model_id;
-                continue;
-            }
-            if (!models_availability->tts_whisperspeech &&
-                engine == model_engine_t::tts_whisperspeech) {
-                qDebug() << "ignoring whisperspeech model:" << model_id;
-                continue;
-            }
-            if (!models_availability->tts_parler &&
-                engine == model_engine_t::tts_parler) {
-                qDebug() << "ignoring parler model:" << model_id;
-                continue;
-            }
-            if (!models_availability->tts_f5 &&
-                engine == model_engine_t::tts_f5) {
-                qDebug() << "ignoring f5 model:" << model_id;
-                continue;
-            }
-            if (!models_availability->tts_kokoro &&
-                engine == model_engine_t::tts_kokoro) {
-                qDebug() << "ignoring kokoro model:" << model_id;
-                continue;
-            }
-            if (!models_availability->tts_rhvoice &&
-                engine == model_engine_t::tts_rhvoice) {
-                qDebug() << "ignoring rhvoice model:" << model_id;
-                continue;
-            }
-            if (!models_availability->stt_fasterwhisper &&
-                engine == model_engine_t::stt_fasterwhisper) {
-                qDebug() << "ignoring fasterwhisper model:" << model_id;
-                continue;
-            }
-            if (!models_availability->stt_ds &&
-                engine == model_engine_t::stt_ds) {
-                qDebug() << "ignoring ds model:" << model_id;
-                continue;
-            }
-            if (!models_availability->stt_vosk &&
-                engine == model_engine_t::stt_vosk) {
-                qDebug() << "ignoring vosk model:" << model_id;
-                continue;
-            }
-            if (!models_availability->stt_whispercpp &&
-                engine == model_engine_t::stt_whisper) {
-                qDebug() << "ignoring whispercpp model:" << model_id;
-                continue;
-            }
-            if (!models_availability->mnt_bergamot &&
-                engine == model_engine_t::mnt_bergamot) {
-                qDebug() << "ignoring bergamot model:" << model_id;
-                continue;
-            }
+#define X(_name, _role, ...)                                             \
+    if (!models_availability->ENGINE_TYPE(_name, _role) &&               \
+        engine == model_engine_t::ENGINE_TYPE(_name, _role)) {           \
+        qDebug() << "ignoring model as engine is disabled:" << model_id; \
+        continue;                                                        \
+    }
+            ENGINE_TABLE
+#undef X
+#ifdef USE_PY
             if (engine == model_engine_t::tts_mimic3) {
-                if (!models_availability->tts_mimic3 ||
-                    (!models_availability->tts_mimic3_de && lang_id == "de") ||
+                if ((!models_availability->tts_mimic3_de && lang_id == "de") ||
                     (!models_availability->tts_mimic3_es && lang_id == "es") ||
                     (!models_availability->tts_mimic3_fr && lang_id == "fr") ||
                     (!models_availability->tts_mimic3_it && lang_id == "it") ||
@@ -2432,10 +2133,13 @@ auto models_manager::extract_models(
                     (!models_availability->tts_mimic3_sw && lang_id == "sw") ||
                     (!models_availability->tts_mimic3_fa && lang_id == "fa") ||
                     (!models_availability->tts_mimic3_nl && lang_id == "nl")) {
-                    qDebug() << "ignoring mimic3 model:" << model_id;
+                    qDebug()
+                        << "ignoring model as lang is unavailable:" << model_id
+                        << lang_id;
                     continue;
                 }
             }
+#endif
             if (!models_availability->option_r && options.contains('r')) {
                 qDebug() << "ignoring model with option r:" << model_id;
                 continue;
@@ -2547,22 +2251,7 @@ auto models_manager::extract_models(
             }
         }
 
-        /* implicit options */
-
-        if (model.engine == model_engine_t::tts_coqui &&
-            !model.options.contains('c')) {
-            // add char replacement option for all coqui tts models
-            model.options.push_back('c');
-        } else if (model.engine == model_engine_t::tts_sam) {
-            // add split by words option for all sam tts models
-            model.options.push_back('w');
-        } else if ((model.engine == model_engine_t::stt_whisper ||
-                    model.engine == model_engine_t::stt_fasterwhisper) &&
-                   !model.disabled && !model.hidden &&
-                   model.options.contains('t') && model.lang_id == "en") {
-            // remove translate to english option for all english models
-            model.options.remove('t');
-        }
+        add_implicit_model_options(model);
 
         models.emplace(model_id, std::move(model));
     }
@@ -2570,6 +2259,30 @@ auto models_manager::extract_models(
     settings::instance()->set_enabled_models(enabled_models);
 
     return models;
+}
+
+void models_manager::add_implicit_model_options(priv_model_t& model) {
+    if (model.engine == model_engine_t::tts_sam) {
+        // add split by words option for all sam tts models
+        model.options.push_back('w');
+    } else if (model.engine == model_engine_t::stt_whisper && !model.disabled &&
+               !model.hidden && model.options.contains('t') &&
+               model.lang_id == "en") {
+        // remove translate to english option for all english models
+        model.options.remove('t');
+    }
+#ifdef USE_PY
+    else if (model.engine == model_engine_t::tts_coqui &&
+             !model.options.contains('c')) {
+        // add char replacement option for all coqui tts models
+        model.options.push_back('c');
+    } else if ((model.engine == model_engine_t::stt_fasterwhisper) &&
+               !model.disabled && !model.hidden &&
+               model.options.contains('t') && model.lang_id == "en") {
+        // remove translate to english option for all english models
+        model.options.remove('t');
+    }
+#endif
 }
 
 void models_manager::update_dl_multi(models_manager::models_t& models) {
@@ -2777,30 +2490,11 @@ void models_manager::parse_models_file(
 QString models_manager::file_name_from_id(const QString& id,
                                           model_engine_t engine) {
     switch (engine) {
-        case model_engine_t::stt_ds:
-            return id + ".tflite";
-        case model_engine_t::stt_whisper:
-            return id + ".ggml";
-        case model_engine_t::stt_april:
-            return id + ".april";
-        case model_engine_t::ttt_tashkeel:
-            return id + ".ort";
-        case model_engine_t::stt_fasterwhisper:
-        case model_engine_t::stt_vosk:
-        case model_engine_t::ttt_hftc:
-        case model_engine_t::ttt_unikud:
-        case model_engine_t::tts_coqui:
-        case model_engine_t::tts_piper:
-        case model_engine_t::tts_espeak:
-        case model_engine_t::tts_rhvoice:
-        case model_engine_t::tts_mimic3:
-        case model_engine_t::tts_whisperspeech:
-        case model_engine_t::tts_sam:
-        case model_engine_t::tts_parler:
-        case model_engine_t::tts_f5:
-        case model_engine_t::tts_kokoro:
-        case model_engine_t::mnt_bergamot:
-            return id;
+#define X(_name, _role, _3, _4, _5, _6, _7, _8, _9, _ext, ...) \
+    case model_engine_t::ENGINE_TYPE(_name, _role):            \
+        return id + _ext;
+        ENGINE_TABLE
+#undef X
     }
 
     throw std::runtime_error{"unknown model engine"};
@@ -2966,26 +2660,15 @@ void models_manager::update_models_using_availability_internal() {
     qDebug() << "updating model using availability internal";
 
     std::for_each(m_models.begin(), m_models.end(), [&](auto& pair) {
-        if (!m_models_availability->tts_coqui &&
-            pair.second.engine == model_engine_t::tts_coqui) {
-            pair.second.disabled = true;
-            return;
-        }
-        if (!m_models_availability->tts_whisperspeech &&
-            pair.second.engine == model_engine_t::tts_whisperspeech) {
-            pair.second.disabled = true;
-            return;
-        }
-        if (!m_models_availability->tts_parler &&
-            pair.second.engine == model_engine_t::tts_parler) {
-            pair.second.disabled = true;
-            return;
-        }
-        if (!m_models_availability->tts_f5 &&
-            pair.second.engine == model_engine_t::tts_f5) {
-            pair.second.disabled = true;
-            return;
-        }
+#define X(_name, _role, ...)                                               \
+    if (!m_models_availability->ENGINE_TYPE(_name, _role) &&               \
+        pair.second.engine == model_engine_t::ENGINE_TYPE(_name, _role)) { \
+        pair.second.disabled = true;                                       \
+        return;                                                            \
+    }
+        ENGINE_TABLE
+#undef X
+#ifdef USE_PY
         if (pair.second.engine == model_engine_t::tts_kokoro) {
             if (!m_models_availability->tts_kokoro ||
                 (!m_models_availability->tts_kokoro_ja &&
@@ -3018,41 +2701,7 @@ void models_manager::update_models_using_availability_internal() {
                 return;
             }
         }
-        if (!m_models_availability->tts_rhvoice &&
-            pair.second.engine == model_engine_t::tts_rhvoice) {
-            pair.second.disabled = true;
-            return;
-        }
-        if (!m_models_availability->stt_fasterwhisper &&
-            pair.second.engine == model_engine_t::stt_fasterwhisper) {
-            pair.second.disabled = true;
-            return;
-        }
-        if (!m_models_availability->stt_ds &&
-            pair.second.engine == model_engine_t::stt_ds) {
-            pair.second.disabled = true;
-            return;
-        }
-        if (!m_models_availability->stt_vosk &&
-            pair.second.engine == model_engine_t::stt_vosk) {
-            pair.second.disabled = true;
-            return;
-        }
-        if (!m_models_availability->stt_whispercpp &&
-            pair.second.engine == model_engine_t::stt_whisper) {
-            pair.second.disabled = true;
-            return;
-        }
-        if (!m_models_availability->mnt_bergamot &&
-            pair.second.engine == model_engine_t::mnt_bergamot) {
-            pair.second.disabled = true;
-            return;
-        }
-        if (!m_models_availability->ttt_hftc &&
-            pair.second.engine == model_engine_t::ttt_hftc) {
-            pair.second.disabled = true;
-            return;
-        }
+#endif
         if (!m_models_availability->option_r &&
             pair.second.options.contains('r')) {
             pair.second.disabled = true;

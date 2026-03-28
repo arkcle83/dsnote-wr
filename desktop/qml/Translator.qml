@@ -135,7 +135,7 @@ ColumnLayout {
                             "Markdown",
                             qsTr("SRT Subtitles")
                         ]
-                        onActivated: {
+                        onActivated: (index) => {
                             if (index === 0)
                                 _settings.mnt_text_format = Settings.TextFormatRaw
                             else if (index === 1)
@@ -177,7 +177,7 @@ ColumnLayout {
                     comboFillWidth: false
                     combo {
                         model: app.available_mnt_langs
-                        onActivated: app.set_active_mnt_lang_idx(index)
+                        onActivated: (index) => app.set_active_mnt_lang_idx(index)
                         currentIndex: app.active_mnt_lang_idx
                     }
                     frame {
@@ -205,7 +205,7 @@ ColumnLayout {
                         enabled: mntInCombo.second.enabled &&
                                  !mntInCombo.second.off &&
                                  app.state === DsnoteApp.StateIdle
-                        onActivated: app.set_active_tts_model_for_in_mnt_idx(index)
+                        onActivated: (index) => app.set_active_tts_model_for_in_mnt_idx(index)
                         currentIndex: app.active_tts_model_for_in_mnt_idx
                     }
                     combo2 {
@@ -215,7 +215,7 @@ ColumnLayout {
                                  app.state === DsnoteApp.StateIdle
                         model: mntInCombo.refVoiceNeeded ? app.available_tts_ref_voice_names :
                                                            _settings.tts_voice_prompt_names
-                        onActivated: {
+                        onActivated: (index) => {
                             if (mntInCombo.refVoiceNeeded)
                                 app.set_active_tts_for_in_mnt_ref_voice_idx(index)
                             else
@@ -369,7 +369,7 @@ ColumnLayout {
                     comboFillWidth: false
                     combo {
                         model: app.available_mnt_out_langs
-                        onActivated: app.set_active_mnt_out_lang_idx(index)
+                        onActivated: (index) => app.set_active_mnt_out_lang_idx(index)
                         currentIndex: app.active_mnt_out_lang_idx
                     }
                     frame {
@@ -397,7 +397,7 @@ ColumnLayout {
                         enabled: mntOutCombo.second.enabled &&
                                  !mntOutCombo.second.off &&
                                  app.state === DsnoteApp.StateIdle
-                        onActivated: app.set_active_tts_model_for_out_mnt_idx(index)
+                        onActivated: (index) => app.set_active_tts_model_for_out_mnt_idx(index)
                         currentIndex: app.active_tts_model_for_out_mnt_idx
                     }
                     combo2 {
@@ -407,7 +407,7 @@ ColumnLayout {
                                  app.state === DsnoteApp.StateIdle
                         model: mntOutCombo.refVoiceNeeded ? app.available_tts_ref_voice_names :
                                                            _settings.tts_voice_prompt_names
-                        onActivated: {
+                        onActivated: (index) => {
                             if (mntOutCombo.refVoiceNeeded)
                                 app.set_active_tts_for_out_mnt_ref_voice_idx(index)
                             else

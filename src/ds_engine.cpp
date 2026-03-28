@@ -355,11 +355,13 @@ void ds_engine::decode_speech(const ds_buf_t& buf, bool eof) {
 
         m_ds_stream = nullptr;
 
+#ifdef USE_PY
         if (m_punctuator) {
             segments.first = m_punctuator->process(segments.first);
             text_tools::restore_punctuation_in_segments(segments.first,
                                                         segments.second);
         }
+#endif
 
         if (m_config.text_format == text_format_t::subrip) {
             text_tools::break_segments_to_multiline(
@@ -404,9 +406,9 @@ void ds_engine::decode_speech(const ds_buf_t& buf, bool eof) {
 
             report_stats(m_decoded_samples, m_sample_rate, m_decoding_duration);
         }
-
+#ifdef USE_PY
         if (m_punctuator) result = m_punctuator->process(result);
-
+#endif
         if (!m_intermediate_text || m_intermediate_text != result)
             set_intermediate_text(result, m_config.lang);
     }

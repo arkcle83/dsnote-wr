@@ -73,7 +73,7 @@ ColumnLayout {
                 qsTranslate("SettingsPage", "Add to an existing note"),
                 qsTranslate("SettingsPage", "Replace an existing note")
             ]
-            onActivated: {
+            onActivated: (index) => {
                 if (index === 1) {
                     _settings.file_import_action = Settings.FileImportActionAppend
                 } else if (index === 2) {
@@ -104,7 +104,7 @@ ColumnLayout {
                 qsTranslate("SettingsPage", "Add after empty line"),
                 qsTranslate("SettingsPage", "Replace an existing note")
             ]
-            onActivated: {
+            onActivated: (index) => {
                 if (index === 0) {
                     _settings.insert_mode = Settings.InsertAtCursor
                 } else if (index === 1) {

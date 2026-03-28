@@ -1,4 +1,4 @@
-/* Copyright (C) 2024-2025 Michal Kosciesza <michal@mkiol.net>
+/* Copyright (C) 2024-2026 Michal Kosciesza <michal@mkiol.net>
  *
  * This Source Code Form is subject to the terms of the Mozilla Public
  * License, v. 2.0. If a copy of the MPL was not distributed with this
@@ -137,7 +137,7 @@ ColumnLayout {
                 qsTranslate("SettingsPage", "Sync and increase speed to fit"),
                 qsTranslate("SettingsPage", "Sync and increase or decrease speed to fit")
             ]
-            onActivated: {
+            onActivated: (index) => {
                 if (index === 1) {
                     _settings.tts_subtitles_sync = Settings.TtsSubtitleSyncOnDontFit
                 } else if (index === 2) {
@@ -248,74 +248,89 @@ ColumnLayout {
         currentIndex: ttsEnginesBar.currentIndex
         visible: ttsEnginesBar.visible
 
-        ColumnLayout {
-            id: coquiTab
+        Loader {
+            active: app.feature_coqui_tts && app.feature_coqui_gpu
+            sourceComponent: Component {
+                ColumnLayout {
+                    id: coquiTab
 
-            visible: app.feature_coqui_tts && app.feature_coqui_gpu
-
-            GpuComboBox {
-                devices: _settings.coqui_gpu_devices
-                device_index: _settings.coqui_gpu_device_idx
-                use_gpu: _settings.coqui_use_gpu
-                show_rocm_warning: true
-                onUse_gpuChanged: _settings.coqui_use_gpu = use_gpu
-                onDevice_indexChanged: _settings.coqui_gpu_device_idx = device_index
+                    GpuComboBox {
+                        devices: _settings.coqui_gpu_devices
+                        device_index: _settings.coqui_gpu_device_idx
+                        use_gpu: _settings.coqui_use_gpu
+                        show_rocm_warning: true
+                        onUse_gpuChanged: _settings.coqui_use_gpu = use_gpu
+                        onDevice_indexChanged: _settings.coqui_gpu_device_idx = device_index
+                    }
+                }
             }
         }
 
-        ColumnLayout {
-            id: parlerTab
+        Loader {
+            active: app.feature_parler_tts && app.feature_parler_gpu
+            sourceComponent: Component {
+                ColumnLayout {
+                    id: parlerTab
 
-            visible: app.feature_parler_tts && app.feature_parler_gpu
-
-            GpuComboBox {
-                devices: _settings.parler_gpu_devices
-                device_index: _settings.parler_gpu_device_idx
-                use_gpu: _settings.parler_use_gpu
-                onUse_gpuChanged: _settings.parler_use_gpu = use_gpu
-                onDevice_indexChanged: _settings.parler_gpu_device_idx = device_index
+                    GpuComboBox {
+                        devices: _settings.parler_gpu_devices
+                        device_index: _settings.parler_gpu_device_idx
+                        use_gpu: _settings.parler_use_gpu
+                        onUse_gpuChanged: _settings.parler_use_gpu = use_gpu
+                        onDevice_indexChanged: _settings.parler_gpu_device_idx = device_index
+                    }
+                }
             }
         }
 
-        ColumnLayout {
-            id: f5Tab
+        Loader {
+            active: app.feature_f5_tts && app.feature_f5_gpu
+            sourceComponent: Component {
+                ColumnLayout {
+                    id: f5Tab
 
-            visible: app.feature_f5_tts && app.feature_f5_gpu
-
-            GpuComboBox {
-                devices: _settings.f5_gpu_devices
-                device_index: _settings.f5_gpu_device_idx
-                use_gpu: _settings.f5_use_gpu
-                onUse_gpuChanged: _settings.f5_use_gpu = use_gpu
-                onDevice_indexChanged: _settings.f5_gpu_device_idx = device_index
+                    GpuComboBox {
+                        devices: _settings.f5_gpu_devices
+                        device_index: _settings.f5_gpu_device_idx
+                        use_gpu: _settings.f5_use_gpu
+                        onUse_gpuChanged: _settings.f5_use_gpu = use_gpu
+                        onDevice_indexChanged: _settings.f5_gpu_device_idx = device_index
+                    }
+                }
             }
         }
 
-        ColumnLayout {
-            id: kokoroTab
+        Loader {
+            active: app.feature_kokoro_tts && app.feature_kokoro_gpu
+            sourceComponent: Component {
+                ColumnLayout {
+                    id: kokoroTab
 
-            visible: app.feature_kokoro_tts && app.feature_kokoro_gpu
-
-            GpuComboBox {
-                devices: _settings.kokoro_gpu_devices
-                device_index: _settings.kokoro_gpu_device_idx
-                use_gpu: _settings.kokoro_use_gpu
-                onUse_gpuChanged: _settings.kokoro_use_gpu = use_gpu
-                onDevice_indexChanged: _settings.kokoro_gpu_device_idx = device_index
+                    GpuComboBox {
+                        devices: _settings.kokoro_gpu_devices
+                        device_index: _settings.kokoro_gpu_device_idx
+                        use_gpu: _settings.kokoro_use_gpu
+                        onUse_gpuChanged: _settings.kokoro_use_gpu = use_gpu
+                        onDevice_indexChanged: _settings.kokoro_gpu_device_idx = device_index
+                    }
+                }
             }
         }
 
-        ColumnLayout {
-            id: whisperspeechTab
+        Loader {
+            active: app.feature_whisperspeech_tts && app.feature_whisperspeech_gpu
+            sourceComponent: Component {
+                ColumnLayout {
+                    id: whisperspeechTab
 
-            visible: app.feature_whisperspeech_tts && app.feature_whisperspeech_gpu
-
-            GpuComboBox {
-                devices: _settings.whisperspeech_gpu_devices
-                device_index: _settings.whisperspeech_gpu_device_idx
-                use_gpu: _settings.whisperspeech_use_gpu
-                onUse_gpuChanged: _settings.whisperspeech_use_gpu = use_gpu
-                onDevice_indexChanged: _settings.whisperspeech_gpu_device_idx = device_index
+                    GpuComboBox {
+                        devices: _settings.whisperspeech_gpu_devices
+                        device_index: _settings.whisperspeech_gpu_device_idx
+                        use_gpu: _settings.whisperspeech_use_gpu
+                        onUse_gpuChanged: _settings.whisperspeech_use_gpu = use_gpu
+                        onDevice_indexChanged: _settings.whisperspeech_gpu_device_idx = device_index
+                    }
+                }
             }
         }
     }

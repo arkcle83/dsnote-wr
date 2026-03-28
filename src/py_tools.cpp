@@ -41,7 +41,7 @@ std::ostream& operator<<(std::ostream& os,
        << ", whisperspeech-tts=" << availability.whisperspeech_tts
        << ", parler-tts=" << availability.parler_tts
        << ", f5-tts=" << availability.f5_tts
-       << ", kokoro-tts=" << availability.f5_tts
+       << ", kokoro-tts=" << availability.kokoro_tts
        << ", transformers=" << availability.transformers
        << ", unikud=" << availability.unikud
        << ", gruut_de=" << availability.gruut_de

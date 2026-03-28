@@ -22,10 +22,8 @@
 #include <memory>
 #include <optional>
 #include <queue>
-#include <regex>
 #include <set>
 #include <string>
-#include <utility>
 #include <variant>
 #include <vector>
 
@@ -182,7 +180,7 @@ class speech_service : public QObject, public singleton<speech_service> {
     QVariantList available_tts_lang_list() const;
     QVariantList available_stt_tts_lang_list() const;
     QVariantList available_mnt_lang_list() const;
-    inline auto task_state() const { return m_task_state; }
+    auto task_state() const { return m_task_state; }
     state_t state() const;
     int current_task_id() const;
     double stt_transcribe_file_progress(int task) const;
@@ -497,7 +495,7 @@ class speech_service : public QObject, public singleton<speech_service> {
     std::optional<model_config_t> choose_model_config(engine_t engine_type,
                                                       QString model_id = {},
                                                       QString out_lang_id = {});
-    inline auto recording() const { return static_cast<bool>(m_source); }
+    auto recording() const { return static_cast<bool>(m_source); }
     void refresh_status();
     void stop_stt_engine_gracefully();
     void stop_stt_engine();
@@ -559,6 +557,10 @@ class speech_service : public QObject, public singleton<speech_service> {
                                                  const QString &default_value,
                                                  const QVariantMap &options);
     void play_beep(beep_role_t beep_role);
+    bool is_new_stt_engine_required(models_manager::model_engine_t engine_type,
+                                    const stt_engine::config_t &config) const;
+    bool is_new_tts_engine_required(models_manager::model_engine_t engine_type,
+                                    const tts_engine::config_t &config) const;
 
     // DBus
     Q_INVOKABLE int Cancel(int task);

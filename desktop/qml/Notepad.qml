@@ -103,7 +103,7 @@ ColumnLayout {
                 qsTr("SRT Subtitles"),
                 qsTr("Inline timestamps")
             ]
-            onActivated: {
+            onActivated: (index) => {
                 if (index === 0)
                     _settings.stt_tts_text_format = Settings.TextFormatRaw
                 else if (index === 1)
@@ -141,7 +141,7 @@ ColumnLayout {
             checkToolTip: qsTr("Translate to English")
             combo {
                 model: app.available_stt_models
-                onActivated: app.set_active_stt_model_idx(index)
+                onActivated: (index) => app.set_active_stt_model_idx(index)
                 currentIndex: app.active_stt_model_idx
             }
             check {
@@ -206,7 +206,7 @@ ColumnLayout {
                          app.state === DsnoteApp.StateIdle
                 model: listenReadCombos.refVoiceNeeded ? app.available_tts_ref_voice_names :
                                                          _settings.tts_voice_prompt_names
-                onActivated: {
+                onActivated: (index) => {
                     if (listenReadCombos.refVoiceNeeded)
                         app.set_active_tts_ref_voice_idx(index)
                     else
@@ -249,7 +249,7 @@ ColumnLayout {
                     ListElement { text: "x 1.9"; value: 19 }
                     ListElement { text: "x 2.0"; value: 20 }
                 }
-                onActivated: _settings.speech_speed = index + 1
+                onActivated: (index) => _settings.speech_speed = index + 1
             }
             buttonToolTip: qsTr("Read") + " (Ctrl+Alt+Shift+R)"
             button {

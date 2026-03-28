@@ -274,7 +274,7 @@ ColumnLayout {
                 qsTranslate("SettingsPage", "Off (Assume all are available)"),
                 qsTranslate("SettingsPage", "Off (Assume none are available)"),
             ]
-            onActivated: {
+            onActivated: (index) => {
                 if (index === 0) {
                     _settings.py_scan_mode = Settings.PyScanOn
                 } else if (index === 1) {
@@ -353,7 +353,7 @@ ColumnLayout {
                 "XDO",
                 "YDO"
             ]
-            onActivated: {
+            onActivated: (index) => {
                 if (index === 0) {
                     _settings.fake_keyboard_type = Settings.FakeKeyboardTypeLegacy
                 } else if (index === 1) {
@@ -445,7 +445,7 @@ ColumnLayout {
                 qsTranslate("SettingsPage", "Simulate paste in terminal (%1)").arg("Ctrl+Shift+V"),
                 qsTranslate("SettingsPage", "Simulate typing")
             ]
-            onActivated: {
+            onActivated: (index) => {
                 if (index === 0) {
                     _settings.text_to_window_method = Settings.TextToWindowMethodCtrlV
                 } else if (index === 1) {
@@ -475,7 +475,7 @@ ColumnLayout {
                 qsTranslate("SettingsPage", "Simulate copy (%1)").arg("Ctrl+C"),
                 qsTranslate("SettingsPage", "Simulate copy in terminal (%1)").arg("Ctrl+Shift+C")
             ]
-            onActivated: {
+            onActivated: (index) => {
                 if (index === 0) {
                     _settings.text_from_window_method = Settings.TextFromWindowMethodCtrlC
                 } else if (index === 1) {
@@ -506,7 +506,7 @@ ColumnLayout {
                 "X11",
                 "XDG Desktop Portal"
             ]
-            onActivated: {
+            onActivated: (index) => {
                 if (index === 0) {
                     _settings.hotkeys_type = Settings.HotkeysTypeX11
                 } else if (index === 1) {

@@ -264,7 +264,7 @@ void coqui_engine::create_model() {
             auto model = m_model->attr("tts_model");
 
             auto model_class_name =
-                model.get_type().attr("__name__").cast<std::string>();
+                py::type::of(model).attr("__name__").cast<std::string>();
             LOGD("model class name: " << model_class_name);
 
             if (py::hasattr(model, "length_scale")) {

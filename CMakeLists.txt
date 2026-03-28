@@ -341,18 +341,12 @@ set(dsnote_lib_sources
     ${sources_dir}/checksum_tools.hpp
     ${sources_dir}/denoiser.hpp
     ${sources_dir}/denoiser.cpp
-    ${sources_dir}/punctuator.hpp
-    ${sources_dir}/punctuator.cpp
-    ${sources_dir}/py_tools.hpp
-    ${sources_dir}/py_tools.cpp
     ${sources_dir}/module_tools.hpp
     ${sources_dir}/module_tools.cpp
     ${sources_dir}/tts_engine.hpp
     ${sources_dir}/tts_engine.cpp
     ${sources_dir}/piper_engine.hpp
     ${sources_dir}/piper_engine.cpp
-    ${sources_dir}/coqui_engine.hpp
-    ${sources_dir}/coqui_engine.cpp
     ${sources_dir}/espeak_engine.hpp
     ${sources_dir}/espeak_engine.cpp
     ${sources_dir}/rhvoice_engine.hpp
@@ -360,8 +354,6 @@ set(dsnote_lib_sources
     ${sources_dir}/nlohmann/json.hpp
     ${sources_dir}/simdjson.h
     ${sources_dir}/simdjson.cpp
-    ${sources_dir}/py_executor.hpp
-    ${sources_dir}/py_executor.cpp
     ${sources_dir}/text_tools.hpp
     ${sources_dir}/text_tools.cpp
     ${sources_dir}/mnt_engine.hpp
@@ -375,10 +367,6 @@ set(dsnote_lib_sources
     ${sources_dir}/mtag_tools.cpp
     ${sources_dir}/app_server.hpp
     ${sources_dir}/app_server.cpp
-    ${sources_dir}/fasterwhisper_engine.hpp
-    ${sources_dir}/fasterwhisper_engine.cpp
-    ${sources_dir}/mimic3_engine.hpp
-    ${sources_dir}/mimic3_engine.cpp
     ${sources_dir}/april_engine.hpp
     ${sources_dir}/april_engine.cpp
     ${sources_dir}/avlogger.hpp
@@ -391,19 +379,11 @@ set(dsnote_lib_sources
     ${sources_dir}/media_converter.cpp
     ${sources_dir}/text_repair_engine.hpp
     ${sources_dir}/text_repair_engine.cpp
-    ${sources_dir}/whisperspeech_engine.hpp
-    ${sources_dir}/whisperspeech_engine.cpp
     ${sources_dir}/audio_device_manager.cpp
     ${sources_dir}/audio_device_manager.hpp
     ${sources_dir}/cmd_options.hpp
     ${sources_dir}/sam_engine.cpp
     ${sources_dir}/sam_engine.hpp
-    ${sources_dir}/parler_engine.cpp
-    ${sources_dir}/parler_engine.hpp
-    ${sources_dir}/f5_engine.cpp
-    ${sources_dir}/f5_engine.hpp
-    ${sources_dir}/kokoro_engine.cpp
-    ${sources_dir}/kokoro_engine.hpp
     ${sources_dir}/wl_clipboard.cpp
     ${sources_dir}/wl_clipboard.hpp
 )
@@ -420,6 +400,30 @@ if(WITH_DESKTOP)
         ${sources_dir}/dbus_portal_globalshortcuts_inf.h
         ${sources_dir}/dbus_portal_request_inf.cpp
         ${sources_dir}/dbus_portal_request_inf.h)
+endif()
+
+if(WITH_PY)
+    list(APPEND dsnote_lib_sources
+        ${sources_dir}/py_executor.hpp
+        ${sources_dir}/py_executor.cpp
+        ${sources_dir}/py_tools.hpp
+        ${sources_dir}/py_tools.cpp
+        ${sources_dir}/punctuator.hpp
+        ${sources_dir}/punctuator.cpp
+        ${sources_dir}/fasterwhisper_engine.hpp
+        ${sources_dir}/fasterwhisper_engine.cpp
+        ${sources_dir}/mimic3_engine.hpp
+        ${sources_dir}/mimic3_engine.cpp
+        ${sources_dir}/parler_engine.cpp
+        ${sources_dir}/parler_engine.hpp
+        ${sources_dir}/f5_engine.cpp
+        ${sources_dir}/f5_engine.hpp
+        ${sources_dir}/kokoro_engine.cpp
+        ${sources_dir}/kokoro_engine.hpp
+        ${sources_dir}/whisperspeech_engine.hpp
+        ${sources_dir}/whisperspeech_engine.cpp
+        ${sources_dir}/coqui_engine.hpp
+        ${sources_dir}/coqui_engine.cpp)
 endif()
 
 configure_file(config.h.in config.h)
@@ -450,7 +454,8 @@ list(APPEND resources
 
 # executable
 
-add_executable(${info_binary_id} "${sources_dir}/main.cpp" ${resources})
+add_executable(${info_binary_id} "${sources_dir}/main.cpp" ${resources}
+    src/engine_table.hxx)
 set_property(TARGET ${info_binary_id} PROPERTY INTERPROCEDURAL_OPTIMIZATION TRUE)
 set_property(TARGET ${info_binary_id} PROPERTY AUTORCC ON)
 set_property(TARGET ${info_binary_id} PROPERTY AUTOUIC ON)
@@ -703,30 +708,32 @@ else()
     list(APPEND deps_libs ${ssplitcpp_path} ${pcre2_path} ${pcre2posix_path})
 endif()
 
-if(${DEV_USE_PYTHON311} OR ${DEV_USE_PYTHON312})
-    if(DEV_USE_PYTHON311)
-        pkg_search_module(python REQUIRED python-3.11)
-        set(python_LIBRARIES -lpython3.11)
+if(WITH_PY)
+    if(${DEV_USE_PYTHON311} OR ${DEV_USE_PYTHON312})
+        if(DEV_USE_PYTHON311)
+            pkg_search_module(python REQUIRED python-3.11)
+            set(python_LIBRARIES -lpython3.11)
+        else()
+            pkg_search_module(python REQUIRED python-3.12)
+            set(python_LIBRARIES -lpython3.12)
+        endif()
+        list(APPEND deps_libs ${python_LIBRARIES})
+        list(APPEND includes ${python_INCLUDE_DIRS})
     else()
-        pkg_search_module(python REQUIRED python-3.12)
-        set(python_LIBRARIES -lpython3.12)
+        find_package(Python COMPONENTS Development REQUIRED)
+        list(APPEND deps_dirs ${Python_LIBRARY_DIRS})
+        list(APPEND deps_libs ${Python_LIBRARIES})
+        list(APPEND includes ${Python_INCLUDE_DIRS})
     endif()
-    list(APPEND deps_libs ${python_LIBRARIES})
-    list(APPEND includes ${python_INCLUDE_DIRS})
-else()
-    find_package(Python COMPONENTS Development REQUIRED)
-    list(APPEND deps_dirs ${Python_LIBRARY_DIRS})
-    list(APPEND deps_libs ${Python_LIBRARIES})
-    list(APPEND includes ${Python_INCLUDE_DIRS})
-endif()
 
-if(BUILD_PYBIND11)
-    include(${cmake_path}/pybind11.cmake)
-else()
-    pkg_search_module(pybind11 REQUIRED pybind11)
-    list(APPEND deps_libs ${pybind11_LIBRARIES})
-    list(APPEND includes ${pybind11_INCLUDE_DIRS})
-endif()
+    if(BUILD_PYBIND11)
+        include(${cmake_path}/pybind11.cmake)
+    else()
+        pkg_search_module(pybind11 REQUIRED pybind11)
+        list(APPEND deps_libs ${pybind11_LIBRARIES})
+        list(APPEND includes ${pybind11_INCLUDE_DIRS})
+    endif()
+endif(WITH_PY)
 
 if(BUILD_BERGAMOT)
     include(${cmake_path}/bergamot.cmake)

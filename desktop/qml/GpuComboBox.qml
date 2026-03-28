@@ -57,7 +57,7 @@ ColumnLayout {
         comboBox {
             currentIndex: root.device_index
             model: root.devices
-            onActivated: {
+            onActivated: (index) => {
                 root.device_index = index
             }
         }

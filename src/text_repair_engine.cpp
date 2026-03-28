@@ -1,4 +1,4 @@
-/* Copyright (C) 2024 Michal Kosciesza <michal@mkiol.net>
+/* Copyright (C) 2024-2026 Michal Kosciesza <michal@mkiol.net>
  *
  * This Source Code Form is subject to the terms of the Mozilla Public
  * License, v. 2.0. If a copy of the MPL was not distributed with this
@@ -15,10 +15,6 @@
 
 #include <algorithm>
 #include <array>
-#include <cctype>
-#include <cmath>
-#include <cstdio>
-#include <locale>
 
 #include "logger.hpp"
 
@@ -284,10 +280,15 @@ void text_repair_engine::process_task(task_t& task,
                     m_config.use_gpu ? m_config.gpu_device.id : -1);
             break;
         case task_type_t::restore_punctuation:
-            if (!m_punctuator)
+#ifdef USE_PY
+            if (!m_punctuator) {
                 m_punctuator.emplace(
                     m_config.model_files.punctuator_path,
                     m_config.use_gpu ? m_config.gpu_device.id : -1);
+            }
+#else
+            LOGW("restore punctuation is unavailable as py is off";)
+#endif
             break;
         case task_type_t::none:
             throw std::runtime_error{"invalid task type"};
@@ -303,7 +304,11 @@ void text_repair_engine::process_task(task_t& task,
                 task.text, m_config.model_files.diacritizer_path_he);
             break;
         case task_type_t::restore_punctuation:
+#ifdef USE_PY
             task.text = m_punctuator->process(task.text);
+#else
+            LOGW("restore punctuation is unavailable as py is off";)
+#endif
             break;
         case task_type_t::none:
             throw std::runtime_error{"invalid task type"};

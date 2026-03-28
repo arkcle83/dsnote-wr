@@ -1,4 +1,4 @@
-/* Copyright (C) 2023 Michal Kosciesza <michal@mkiol.net>
+/* Copyright (C) 2023-2026 Michal Kosciesza <michal@mkiol.net>
  *
  * This Source Code Form is subject to the terms of the Mozilla Public
  * License, v. 2.0. If a copy of the MPL was not distributed with this
@@ -622,6 +622,7 @@ void stt_engine::restart_sentence_timer() {
 }
 
 void stt_engine::create_punctuator() {
+#ifdef USE_PY
     if (m_punctuator || m_config.model_files.ttt_model_file.empty()) return;
 
     LOGD("creating punctuator");
@@ -633,6 +634,9 @@ void stt_engine::create_punctuator() {
     } catch (const std::runtime_error& error) {
         LOGE("failed to create punctuator");
     }
+#else
+    LOGW("punctuator is unavailable as py is off");
+#endif
 }
 
 void stt_engine::reset_segment_counters() {

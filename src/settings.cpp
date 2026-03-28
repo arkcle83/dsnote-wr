@@ -156,45 +156,12 @@ static QStringList string_list_from_list(const QVariantList& list) {
 }
 
 QDebug operator<<(QDebug d, settings::hw_feature_flags_t hw_features) {
-    if (hw_features &
-        settings::hw_feature_flags_t::hw_feature_stt_whispercpp_cuda)
-        d << "stt-whispercpp-cuda,";
-    if (hw_features &
-        settings::hw_feature_flags_t::hw_feature_stt_whispercpp_hip)
-        d << "stt-whispercpp-hip,";
-    if (hw_features &
-        settings::hw_feature_flags_t::hw_feature_stt_whispercpp_openvino)
-        d << "stt-whispercpp-openvino,";
-    if (hw_features &
-        settings::hw_feature_flags_t::hw_feature_stt_whispercpp_opencl)
-        d << "stt-whispercpp-opencl,";
-    if (hw_features &
-        settings::hw_feature_flags_t::hw_feature_stt_whispercpp_vulkan)
-        d << "stt-whispercpp-vulkan,";
-    if (hw_features &
-        settings::hw_feature_flags_t::hw_feature_stt_fasterwhisper_cuda)
-        d << "stt-fasterwhisper-cuda,";
-    if (hw_features &
-        settings::hw_feature_flags_t::hw_feature_stt_fasterwhisper_hip)
-        d << "stt-fasterwhisper-hip,";
-    if (hw_features & settings::hw_feature_flags_t::hw_feature_tts_coqui_cuda)
-        d << "tts-coqui-cuda,";
-    if (hw_features & settings::hw_feature_flags_t::hw_feature_tts_coqui_hip)
-        d << "tts-coqui-hip";
-    if (hw_features &
-        settings::hw_feature_flags_t::hw_feature_tts_whisperspeech_cuda)
-        d << "tts-whisperspeech-cuda,";
-    if (hw_features &
-        settings::hw_feature_flags_t::hw_feature_tts_whisperspeech_hip)
-        d << "tts-whisperspeech-hip";
-    if (hw_features & settings::hw_feature_flags_t::hw_feature_tts_parler_cuda)
-        d << "tts-parler-cuda,";
-    if (hw_features & settings::hw_feature_flags_t::hw_feature_tts_parler_hip)
-        d << "tts-parler-hip";
-    if (hw_features & settings::hw_feature_flags_t::hw_feature_tts_f5_cuda)
-        d << "tts-f5-cuda,";
-    if (hw_features & settings::hw_feature_flags_t::hw_feature_tts_f5_hip)
-        d << "tts-f5-hip";
+#define X(_engine, _role, ...)                                          \
+    if (hw_features &                                                   \
+        settings::hw_feature_flags_t::HW_FEATURE(cuda, _engine, _role)) \
+        d << HW_FEATURE_STR(cuda, _engine, _role) ",";
+    HW_CUDA_ENGINE_TABLE
+#undef X
 
     return d;
 }
@@ -555,7 +522,7 @@ static QString file_save_filename(const QDir& dir, QString filename,
             return filename + '.' + ext;
         }
 
-        QRegularExpression rx{"\\d+$"};
+        static QRegularExpression rx{"\\d+$"};
         QRegularExpressionMatch match = rx.match(filename);
         if (match.hasMatch()) {
             bool ok = false;
@@ -1557,7 +1524,9 @@ void settings::enforce_num_threads() const {
 }
 void settings::update_hw_devices_from_fa(
     const QVariantMap& features_availability) {
-#define X(name, _)                                                       \
+#define X(_name, _2, _gpu, ...) X##_gpu(_name)
+#define Xfalse(name)
+#define Xtrue(name)                                                      \
     if (features_availability.contains(#name "-gpu-devices")) {          \
         m_##name##_gpu_devices = string_list_from_list(                  \
             features_availability.value(#name "-gpu-devices").toList()); \
@@ -1565,18 +1534,70 @@ void settings::update_hw_devices_from_fa(
     } else {                                                             \
         LOGD("no " #name "-gpu-devices from fa");                        \
     }
-    GPU_ENGINE_TABLE
+    STT_ENGINE_TABLE
+    TTS_ENGINE_TABLE
 #undef X
+#undef Xtrue
+#undef Xfalse
 
     emit gpu_devices_changed();
 }
 
-void settings::scan_hw_devices(unsigned int hw_feature_flags) {
-#define X(name, _)                  \
+bool settings::hw_engine_disabled(
+    hw_t hw_type, std::underlying_type_t<hw_feature_flags_t> hw_feature_flags) {
+    switch (hw_type) {
+        case hw_t::cuda:
+            return true
+#define X(_engine, _role, ...) \
+    &&((hw_feature_flags &     \
+        hw_feature_flags_t::HW_FEATURE(cuda, _engine, _role)) == 0)
+                HW_CUDA_ENGINE_TABLE;
+#undef X
+        case hw_t::hip:
+            return true
+#define X(_engine, _role, ...) \
+    &&((hw_feature_flags &     \
+        hw_feature_flags_t::HW_FEATURE(hip, _engine, _role)) == 0)
+                HW_HIP_ENGINE_TABLE;
+#undef X
+        case hw_t::openvino:
+            return true
+#define X(_engine, _role, ...) \
+    &&((hw_feature_flags &     \
+        hw_feature_flags_t::HW_FEATURE(openvino, _engine, _role)) == 0)
+                HW_OV_ENGINE_TABLE;
+#undef X
+        case hw_t::opencl:
+            return true
+#define X(_engine, _role, ...) \
+    &&((hw_feature_flags &     \
+        hw_feature_flags_t::HW_FEATURE(opencl, _engine, _role)) == 0)
+                HW_OCL_ENGINE_TABLE;
+#undef X
+        case hw_t::vulkan:
+            return true
+#define X(_engine, _role, ...) \
+    &&((hw_feature_flags &     \
+        hw_feature_flags_t::HW_FEATURE(vulkan, _engine, _role)) == 0)
+                HW_VULKAN_ENGINE_TABLE;
+#undef X
+    }
+
+    LOGF("invalid hw type");
+}
+
+void settings::scan_hw_devices(
+    std::underlying_type_t<hw_feature_flags_t> hw_feature_flags) {
+#define X(_name, _2, _gpu, ...) X##_gpu(_name)
+#define Xfalse(name)
+#define Xtrue(name)                 \
     m_##name##_gpu_devices.clear(); \
     m_##name##_gpu_devices.push_back(tr("Auto"));
-    GPU_ENGINE_TABLE
+    STT_ENGINE_TABLE
+    TTS_ENGINE_TABLE
 #undef X
+#undef Xtrue
+#undef Xfalse
 
     m_rocm_gpu_versions.clear();
 
@@ -1585,52 +1606,6 @@ void settings::scan_hw_devices(unsigned int hw_feature_flags) {
 #undef X
     LOGD("hw feature flags: "
          << static_cast<hw_feature_flags_t>(hw_feature_flags));
-
-    bool disable_fasterwhisper_cuda =
-        (hw_feature_flags &
-         hw_feature_flags_t::hw_feature_stt_fasterwhisper_cuda) == 0;
-    bool disable_fasterwhisper_hip =
-        (hw_feature_flags &
-         hw_feature_flags_t::hw_feature_stt_fasterwhisper_hip) == 0;
-    bool disable_whispercpp_cuda =
-        (hw_feature_flags &
-         hw_feature_flags_t::hw_feature_stt_whispercpp_cuda) == 0;
-    bool disable_whispercpp_openvino =
-        (hw_feature_flags &
-         hw_feature_flags_t::hw_feature_stt_whispercpp_openvino) == 0;
-    bool disable_whispercpp_hip =
-        (hw_feature_flags &
-         hw_feature_flags_t::hw_feature_stt_whispercpp_hip) == 0;
-    bool disable_whispercpp_opencl =
-        (hw_feature_flags &
-         hw_feature_flags_t::hw_feature_stt_whispercpp_opencl) == 0;
-    bool disable_whispercpp_vulkan =
-        (hw_feature_flags &
-         hw_feature_flags_t::hw_feature_stt_whispercpp_vulkan) == 0;
-    bool disable_coqui_cuda =
-        (hw_feature_flags & hw_feature_flags_t::hw_feature_tts_coqui_cuda) == 0;
-    bool disable_coqui_hip =
-        (hw_feature_flags & hw_feature_flags_t::hw_feature_tts_coqui_hip) == 0;
-    bool disable_whisperspeech_cuda =
-        (hw_feature_flags &
-         hw_feature_flags_t::hw_feature_tts_whisperspeech_cuda) == 0;
-    bool disable_whisperspeech_hip =
-        (hw_feature_flags &
-         hw_feature_flags_t::hw_feature_tts_whisperspeech_hip) == 0;
-    bool disable_parler_cuda =
-        (hw_feature_flags & hw_feature_flags_t::hw_feature_tts_parler_cuda) ==
-        0;
-    bool disable_parler_hip =
-        (hw_feature_flags & hw_feature_flags_t::hw_feature_tts_parler_hip) == 0;
-    bool disable_f5_cuda =
-        (hw_feature_flags & hw_feature_flags_t::hw_feature_tts_f5_cuda) == 0;
-    bool disable_f5_hip =
-        (hw_feature_flags & hw_feature_flags_t::hw_feature_tts_f5_hip) == 0;
-    bool disable_kokoro_cuda =
-        (hw_feature_flags & hw_feature_flags_t::hw_feature_tts_kokoro_cuda) ==
-        0;
-    bool disable_kokoro_hip =
-        (hw_feature_flags & hw_feature_flags_t::hw_feature_tts_kokoro_hip) == 0;
 
     auto result = gpu_tools::available_devices(
         /*cuda=*/hw_scan_cuda(),
@@ -1647,93 +1622,91 @@ void settings::scan_hw_devices(unsigned int hw_feature_flags) {
         result.devices.cbegin(), result.devices.cend(),
         [&](const auto& device) {
             switch (device.api) {
-                case gpu_tools::api_t::opencl:
-                    if (disable_whispercpp_opencl) return;
-                    m_whispercpp_gpu_devices.push_back(
+                case gpu_tools::api_t::opencl: {
+                    auto item =
                         QStringLiteral("%1, %2, %3")
-                            .arg(
-                                "OpenCL",
-                                QString::fromStdString(device.platform_name)
-                                    .trimmed(),
-                                QString::fromStdString(device.name).trimmed()));
+                            .arg("OpenCL",
+                                 QString::fromStdString(device.platform_name)
+                                     .trimmed(),
+                                 QString::fromStdString(device.name).trimmed());
+#define X(_engine, ...)                                        \
+    if (!hw_engine_disabled(hw_t::opencl, hw_feature_flags)) { \
+        m_##_engine##_gpu_devices.push_back(item);             \
+    }
+                    HW_OCL_ENGINE_TABLE
+#undef X
                     break;
+                }
                 case gpu_tools::api_t::cuda: {
-                    if (disable_fasterwhisper_cuda && disable_whispercpp_cuda &&
-                        disable_coqui_cuda && disable_whisperspeech_cuda &&
-                        disable_parler_cuda && disable_f5_cuda &&
-                        disable_kokoro_cuda)
-                        return;
                     auto item =
                         QStringLiteral("%1, %2, %3")
                             .arg("CUDA", QString::number(device.id),
                                  QString::fromStdString(device.name).trimmed());
-                    if (!disable_fasterwhisper_cuda)
-                        m_fasterwhisper_gpu_devices.push_back(item);
-                    if (!disable_whispercpp_cuda)
-                        m_whispercpp_gpu_devices.push_back(item);
-                    if (!disable_coqui_cuda)
-                        m_coqui_gpu_devices.push_back(item);
-                    if (!disable_whisperspeech_cuda)
-                        m_whisperspeech_gpu_devices.push_back(item);
-                    if (!disable_parler_cuda)
-                        m_parler_gpu_devices.push_back(item);
-                    if (!disable_f5_cuda) m_f5_gpu_devices.push_back(item);
-                    if (!disable_kokoro_cuda)
-                        m_kokoro_gpu_devices.push_back(item);
+#define X(_engine, ...)                                      \
+    if (!hw_engine_disabled(hw_t::cuda, hw_feature_flags)) { \
+        m_##_engine##_gpu_devices.push_back(item);           \
+    }
+                    HW_CUDA_ENGINE_TABLE
+#undef X
                     break;
                 }
                 case gpu_tools::api_t::rocm: {
-                    if (disable_fasterwhisper_hip && disable_whispercpp_hip &&
-                        disable_coqui_hip && disable_whisperspeech_hip &&
-                        disable_parler_hip && disable_f5_hip &&
-                        disable_kokoro_hip)
-                        return;
                     auto item =
                         QStringLiteral("%1, %2, %3")
                             .arg("ROCm", QString::number(device.id),
                                  QString::fromStdString(device.name).trimmed());
-                    if (!disable_fasterwhisper_hip)
-                        m_fasterwhisper_gpu_devices.push_back(item);
-                    if (!disable_whispercpp_hip)
-                        m_whispercpp_gpu_devices.push_back(item);
-                    if (!disable_coqui_hip) m_coqui_gpu_devices.push_back(item);
-                    if (!disable_whisperspeech_hip)
-                        m_whisperspeech_gpu_devices.push_back(item);
-                    if (!disable_parler_hip)
-                        m_parler_gpu_devices.push_back(item);
-                    if (!disable_f5_hip) m_f5_gpu_devices.push_back(item);
-                    if (!disable_kokoro_hip)
-                        m_kokoro_gpu_devices.push_back(item);
+#define X(_engine, ...)                                     \
+    if (!hw_engine_disabled(hw_t::hip, hw_feature_flags)) { \
+        m_##_engine##_gpu_devices.push_back(item);          \
+    }
+                    HW_HIP_ENGINE_TABLE
+#undef X
                     m_rocm_gpu_versions.push_back(
                         QString::fromStdString(device.platform_name));
                     break;
                 }
-                case gpu_tools::api_t::openvino:
-                    if (disable_whispercpp_openvino) return;
-                    m_whispercpp_gpu_devices.push_back(
+                case gpu_tools::api_t::openvino: {
+                    auto item =
                         QStringLiteral("%1, %2, %3")
                             .arg("OpenVINO",
                                  QString::fromStdString(device.name).trimmed(),
                                  QString::fromStdString(device.platform_name)
-                                     .trimmed()));
+                                     .trimmed());
+#define X(_engine, ...)                                          \
+    if (!hw_engine_disabled(hw_t::openvino, hw_feature_flags)) { \
+        m_##_engine##_gpu_devices.push_back(item);               \
+    }
+                    HW_OV_ENGINE_TABLE
+#undef X
                     break;
-                case gpu_tools::api_t::vulkan:
-                    if (disable_whispercpp_vulkan) return;
-                    m_whispercpp_gpu_devices.push_back(
+                }
+                case gpu_tools::api_t::vulkan: {
+                    auto item =
                         QStringLiteral("%1, %2, %3")
-                            .arg(
-                                "Vulkan", QString::number(device.id),
-                                QString::fromStdString(device.name).trimmed()));
+                            .arg("Vulkan", QString::number(device.id),
+                                 QString::fromStdString(device.name).trimmed());
+#define X(_engine, ...)                                        \
+    if (!hw_engine_disabled(hw_t::vulkan, hw_feature_flags)) { \
+        m_##_engine##_gpu_devices.push_back(item);             \
+    }
+                    HW_VULKAN_ENGINE_TABLE
+#undef X
                     break;
+                }
             }
         });
 
-#define X(name, _)                                   \
+#define X(_name, _2, _gpu, ...) X##_gpu(_name)
+#define Xfalse(name)
+#define Xtrue(name)                                  \
     if (!name##_auto_gpu_device().isEmpty())         \
         m_##name##_gpu_devices.front().append(" (" + \
                                               name##_auto_gpu_device() + ")");
-    GPU_ENGINE_TABLE
+    STT_ENGINE_TABLE
+    TTS_ENGINE_TABLE
 #undef X
+#undef Xtrue
+#undef Xfalse
 
     emit gpu_devices_changed();
 
@@ -1765,10 +1738,10 @@ void settings::scan_hw_devices(unsigned int hw_feature_flags) {
             set_restart_required(true);                                     \
         }                                                                   \
     }
-X(whispercpp)
+X(whisper)
 #undef X
 
-#define X(name)                                                                \
+#define X(name, ...)                                                           \
     bool settings::name##_gpu_flash_attn() const {                             \
         return value(QStringLiteral("service/" #name "_gpu_flash_attn"),       \
                      false)                                                    \
@@ -1871,11 +1844,12 @@ X(whispercpp)
         reset_##name##_audioctx_size();                                        \
         reset_##name##_audioctx_size_value();                                  \
     }
-X(whispercpp)
-X(fasterwhisper)
+WHISPER_ENGINE_TABLE
 #undef X
 
-#define X(name, enabled)                                                      \
+#define X(_name, _2, _gpu, _dgpu, ...) X##_gpu(_name, _dgpu)
+#define Xfalse(...)
+#define Xtrue(name, enabled)                                                  \
     bool settings::name##_use_gpu() const {                                   \
         return value(QStringLiteral(#name "_use_gpu"), enabled).toBool();     \
     }                                                                         \
@@ -1945,8 +1919,11 @@ X(fasterwhisper)
         set_##name##_gpu_device(                                              \
             value == 0 ? "" : m_##name##_gpu_devices.at(value));              \
     }
-GPU_ENGINE_TABLE
+STT_ENGINE_TABLE
+TTS_ENGINE_TABLE
 #undef X
+#undef Xtrue
+#undef Xfalse
 
 QString settings::audio_input_device() const {
     return value(QStringLiteral("audio_input_device")).toString();
@@ -2061,9 +2038,9 @@ void settings::set_hotkey(const QString& requested_id, const QString& value) {
 #undef X
 }
 
-#define X(name, id, desc, key, on_deactivate)                              \
+#define X(name, id, desc, _key, on_deactivate)                             \
     QString settings::hotkey_##name() const {                              \
-        return value(QStringLiteral("hotkey_" #name), QStringLiteral(key)) \
+        return value(QStringLiteral("hotkey_" #name), QLatin1String{_key}) \
             .toString();                                                   \
     }                                                                      \
     void settings::set_hotkey_##name(const QString& value) {               \
@@ -2073,7 +2050,7 @@ void settings::set_hotkey(const QString& requested_id, const QString& value) {
         }                                                                  \
     }                                                                      \
     void settings::reset_hotkey_##name() {                                 \
-        set_hotkey_##name(QStringLiteral(key));                            \
+        set_hotkey_##name(QLatin1String{_key});                            \
         emit hotkeys_table_changed();                                      \
     }
 HOTKEY_TABLE
@@ -2513,10 +2490,15 @@ void settings::update_system_flags() {
         LOGD("amd gpu detected");
     }
 
-    if (m_whispercpp_gpu_devices.size() > 1 ||
-        m_fasterwhisper_gpu_devices.size() > 1 ||
-        m_coqui_gpu_devices.size() > 1 ||
-        m_whisperspeech_gpu_devices.size() > 1) {
+    if (false
+#define X(_name, _2, _gpu, ...) X##_gpu(_name)
+#define Xfalse(name)
+#define Xtrue(name) || m_##name##_gpu_devices.size() > 1
+        STT_ENGINE_TABLE TTS_ENGINE_TABLE
+#undef X
+#undef Xtrue
+#undef Xfalse
+    ) {
         new_flags |= system_flags_t::SystemHwAccel;
         LOGD("hw accel detected");
     }
@@ -2790,11 +2772,15 @@ QString settings::tts_name_of_voice_prompt(const QString& name) const {
         });
 
     if (it == prompts.cend()) {
-        return prompts.isEmpty() ? QString{}
-                                 : prompts.front().toList().front().toString();
+        if (prompts.isEmpty()) {
+            return QString{};
+        }
+        auto l = prompts.front().toList();
+        return l.front().toString();
     }
 
-    return it->toList().front().toString();
+    auto l = it->toList();
+    return l.front().toString();
 }
 
 int settings::tts_index_of_voice_prompt(const QString& name) const {

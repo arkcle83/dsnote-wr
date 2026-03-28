@@ -363,7 +363,7 @@ ApplicationWindow {
             visible: _settings.hw_accel_supported() &&
                      ((_settings.system_flags & Settings.SystemHwAccel) > 0) &&
                      ((_settings.hint_done_flags & Settings.HintDoneHwAccel) == 0) &&
-                     !_settings.whispercpp_use_gpu && !_settings.fasterwhisper_use_gpu &&
+                     !_settings.whisper_use_gpu && !_settings.fasterwhisper_use_gpu &&
                      !_settings.coqui_use_gpu && !_settings.whisperspeech_use_gpu &&
                      (((_settings.system_flags & Settings.SystemAmdGpu) > 0) ||
                       ((_settings.system_flags & Settings.SystemNvidiaGpu) > 0))
@@ -376,7 +376,7 @@ ApplicationWindow {
 
             warning: true
             visible: _settings.hw_accel_supported() &&
-                     ((app.feature_whispercpp_gpu && _settings.whispercpp_use_gpu) ||
+                     ((app.feature_whispercpp_gpu && _settings.whisper_use_gpu) ||
                       (app.feature_fasterwhisper_gpu && _settings.fasterwhisper_use_gpu)) &&
                      ((_settings.error_flags & Settings.ErrorCudaUnknown) > 0)
             text: qsTr("Most likely, %1 kernel module has not been fully initialized.").arg("NVIDIA") + " " +

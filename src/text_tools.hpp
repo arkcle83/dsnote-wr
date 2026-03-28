@@ -1,4 +1,4 @@
-/* Copyright (C) 2023 Michal Kosciesza <michal@mkiol.net>
+/* Copyright (C) 2023-2026 Michal Kosciesza <michal@mkiol.net>
  *
  * This Source Code Form is subject to the terms of the Mozilla Public
  * License, v. 2.0. If a copy of the MPL was not distributed with this
@@ -8,9 +8,11 @@
 #ifndef TEXT_TOOLS_H
 #define TEXT_TOOLS_H
 
+#ifdef USE_PY
 #undef slots
 #include <pybind11/pytypes.h>
 #define slots Q_SLOTS
+#endif
 
 #include <iostream>
 #include <optional>
@@ -59,6 +61,10 @@ struct break_line_info {
 class processor {
    public:
     explicit processor(int device);
+    processor(const processor&) = delete;
+    processor(processor&&) = delete;
+    processor& operator=(const processor&) = delete;
+    processor& operator=(processor&&) = delete;
     ~processor();
     std::string preprocess(const std::string& text, const std::string& options,
                            const std::string& lang,
@@ -69,7 +75,9 @@ class processor {
     void arabic_diacritize(std::string& text, const std::string& model_path);
 
    private:
+#ifdef USE_PY
     std::optional<pybind11::object> m_unikud;
+#endif
     std::optional<tashkeel::State> m_tashkeel_state;
     int m_device = -1;  // cuda device
 };

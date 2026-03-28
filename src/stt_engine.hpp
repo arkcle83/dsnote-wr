@@ -1,4 +1,4 @@
-/* Copyright (C) 2023 Michal Kosciesza <michal@mkiol.net>
+/* Copyright (C) 2023-2026 Michal Kosciesza <michal@mkiol.net>
  *
  * This Source Code Form is subject to the terms of the Mozilla Public
  * License, v. 2.0. If a copy of the MPL was not distributed with this
@@ -14,7 +14,6 @@
 #include <condition_variable>
 #include <cstdint>
 #include <functional>
-#include <memory>
 #include <mutex>
 #include <optional>
 #include <ostream>
@@ -23,8 +22,11 @@
 #include <utility>
 
 #include "denoiser.hpp"
-#include "punctuator.hpp"
 #include "vad.hpp"
+
+#ifdef USE_PY
+#include "punctuator.hpp"
+#endif
 
 using namespace std::chrono_literals;
 
@@ -151,7 +153,12 @@ class stt_engine {
     friend std::ostream& operator<<(std::ostream& os, const config_t& config);
 
     stt_engine(config_t config, callbacks_t call_backs);
+    stt_engine(const stt_engine&) = delete;
+    stt_engine& operator=(const stt_engine&) = delete;
+    stt_engine(stt_engine&&) = delete;
+    stt_engine& operator=(stt_engine&&) = delete;
     virtual ~stt_engine();
+
     std::pair<char*, size_t> borrow_buf();
     void return_buf(const char* c_buf, size_t size, bool sof, bool eof);
     void start();
@@ -238,7 +245,9 @@ class stt_engine {
     bool m_restart_requested = false;
     std::optional<std::chrono::steady_clock::time_point> m_start_time;
     state_t m_state = state_t::idle;
+#ifdef USE_PY
     std::optional<punctuator> m_punctuator;
+#endif
     unsigned int m_segment_offset = 0;
     size_t m_segment_time_offset = 0;
     size_t m_segment_time_discarded_before = 0;

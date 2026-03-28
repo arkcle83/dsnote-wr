@@ -1,4 +1,4 @@
-/* Copyright (C) 2021-2025 Michal Kosciesza <michal@mkiol.net>
+/* Copyright (C) 2021-2026 Michal Kosciesza <michal@mkiol.net>
  *
  * This Source Code Form is subject to the terms of the Mozilla Public
  * License, v. 2.0. If a copy of the MPL was not distributed with this
@@ -22,6 +22,7 @@
 #include <unordered_map>
 #include <vector>
 
+#include "engine_table.hxx"
 #include "singleton.h"
 
 #ifndef QT_SPECIALIZE_STD_HASH_TO_CALL_QHASH
@@ -44,26 +45,11 @@ class models_manager : public QObject, public singleton<models_manager> {
     friend QDebug operator<<(QDebug d, model_role_t role);
 
     enum class model_engine_t {
-        stt_ds,
-        stt_vosk,
-        stt_whisper,
-        stt_fasterwhisper,
-        stt_april,
-        ttt_hftc,
-        ttt_tashkeel,
-        ttt_unikud,
-        tts_coqui,
-        tts_piper,
-        tts_espeak,
-        tts_rhvoice,
-        tts_mimic3,
-        tts_whisperspeech,
-        tts_sam,
-        tts_parler,
-        tts_f5,
-        tts_kokoro,
-        mnt_bergamot
+#define X(_name, _role, ...) ENGINE_TYPE(_name, _role),
+        ENGINE_TABLE
+#undef X
     };
+
     friend QDebug operator<<(QDebug d, model_engine_t engine);
 
     // must be the same as ModelFeatureFilterFlags
@@ -76,23 +62,13 @@ class models_manager : public QObject, public singleton<models_manager> {
         high_quality = 1U << 3U,
         medium_quality = 1U << 4U,
         low_quality = 1U << 5U,
-        engine_stt_ds = 1U << 6U,
-        engine_stt_vosk = 1U << 7U,
-        engine_stt_whisper = 1U << 8U,
-        engine_stt_fasterwhisper = 1U << 9U,
-        engine_stt_april = 1U << 10U,
-        engine_tts_espeak = 1U << 11U,
-        engine_tts_piper = 1U << 12U,
-        engine_tts_rhvoice = 1U << 13U,
-        engine_tts_coqui = 1U << 14U,
-        engine_tts_mimic3 = 1U << 15U,
-        engine_tts_whisperspeech = 1U << 16U,
-        engine_tts_sam = 1U << 17U,
-        engine_tts_parler = 1U << 18U,
-        engine_tts_f5 = 1U << 19U,
-        engine_tts_kokoro = 1U << 20U,
-        engine_mnt = 1U << 23U,
-        engine_other = 1U << 24U,
+    /* engine start */
+#define X(_name, _role, _1, _2, _3, _4, _ffshift, ...) \
+    ENGINE_FEATURE(_name, _role) = 1U << _ffshift##U,
+        STT_ENGINE_TABLE TTS_ENGINE_TABLE MNT_ENGINE_TABLE
+#undef X
+            engine_other = 1U << 24U,
+        /* engine end */
         generic_end = engine_other,
         hw_openvino = 1U << 25U,
         stt_start = 1U << 26U,
@@ -101,7 +77,7 @@ class models_manager : public QObject, public singleton<models_manager> {
         stt_end = stt_punctuation,
         tts_start = 1U << 28U,
         tts_voice_cloning = tts_start,
-        tts_prompt = 1U << 29U,
+        tts_prompt = 1U << 30U,
         tts_end = tts_prompt
     };
     friend feature_flags operator|(feature_flags a, feature_flags b) {
@@ -172,29 +148,21 @@ class models_manager : public QObject, public singleton<models_manager> {
     };
 
     struct models_availability_t {
-        bool tts_coqui = false;
-        bool tts_mimic3 = false;
-        bool tts_mimic3_de = false;
-        bool tts_mimic3_es = false;
-        bool tts_mimic3_fr = false;
-        bool tts_mimic3_it = false;
-        bool tts_mimic3_ru = false;
-        bool tts_mimic3_sw = false;
-        bool tts_mimic3_fa = false;
-        bool tts_mimic3_nl = false;
-        bool tts_rhvoice = false;
-        bool tts_whisperspeech = false;
-        bool tts_parler = false;
-        bool tts_f5 = false;
-        bool tts_kokoro = false;
-        bool tts_kokoro_ja = false;
-        bool tts_kokoro_zh = false;
-        bool stt_fasterwhisper = false;
-        bool stt_ds = false;
-        bool stt_vosk = false;
-        bool stt_whispercpp = false;
-        bool mnt_bergamot = false;
-        bool ttt_hftc = false;
+#define X(_name, _role, ...) bool ENGINE_TYPE(_name, _role) = false;
+        ENGINE_TABLE
+#undef X
+        bool ENGINE_TYPE_LANG(mimic3, tts, de) = false;
+        bool ENGINE_TYPE_LANG(mimic3, tts, es) = false;
+        bool ENGINE_TYPE_LANG(mimic3, tts, fr) = false;
+        bool ENGINE_TYPE_LANG(mimic3, tts, it) = false;
+        bool ENGINE_TYPE_LANG(mimic3, tts, ru) = false;
+        bool ENGINE_TYPE_LANG(mimic3, tts, sw) = false;
+        bool ENGINE_TYPE_LANG(mimic3, tts, fa) = false;
+        bool ENGINE_TYPE_LANG(mimic3, tts, nl) = false;
+
+        bool ENGINE_TYPE_LANG(kokoro, tts, ja) = false;
+        bool ENGINE_TYPE_LANG(kokoro, tts, zh) = false;
+
         bool option_r = false;
     };
     friend QDebug operator<<(QDebug d,
@@ -411,7 +379,7 @@ class models_manager : public QObject, public singleton<models_manager> {
     static std::optional<size_t> sup_models_checksum_last_nok(
         const std::vector<sup_model_t>& models, size_t idx);
     static bool sup_models_exist(const std::vector<sup_model_t>& models);
-    static model_engine_t engine_from_name(const QString& name);
+    static std::optional<model_engine_t> engine_from_name(const QString& name);
     static feature_flags feature_from_name(const QString& name);
     static sup_model_role_t sup_model_role_from_name(const QString& name);
     void update_default_model_for_lang(const QString& lang_id);
@@ -454,6 +422,7 @@ class models_manager : public QObject, public singleton<models_manager> {
     static bool is_modelless_engine(model_engine_t engine);
     static bool is_ignore_on_sfos(model_engine_t engine,
                                   const QString& model_id);
+    static void add_implicit_model_options(priv_model_t& model);
 };
 
 #endif  // MODELS_MANAGER_H
