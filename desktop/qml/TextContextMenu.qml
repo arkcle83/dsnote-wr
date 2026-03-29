@@ -1,4 +1,4 @@
-/* Copyright (C) 2024 Michal Kosciesza <michal@mkiol.net>
+/* Copyright (C) 2024-2026 Michal Kosciesza <michal@mkiol.net>
  *
  * This Source Code Form is subject to the terms of the Mozilla Public
  * License, v. 2.0. If a copy of the MPL was not distributed with this
@@ -16,7 +16,22 @@ Menu {
 
     modal: true
 
+    function disableSpellCheckInTextArea() {
+        try {
+            var sc = Qt.createQmlObject(
+                        "import QtQuick; import org.kde.kirigami as Kirigami; QtObject { function enable(target, enabled) { target.Kirigami.SpellCheck.enabled = enabled }}",
+                        root, "dynamicItem")
+            sc.enable(root.textArea, false)
+            sc.destroy()
+        } catch (e) {
+            // org.kde.kirigami not available
+        }
+    }
+
     Component.onCompleted: {
+        // disable spell check in text-area because context menu does not support it right now
+        disableSpellCheckInTextArea()
+
         var is_native = _settings.is_native_style()
 
         if (is_native && disableNative) {
